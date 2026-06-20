@@ -237,7 +237,20 @@
       white-space: nowrap;
     }
     .icon-btn:hover  { border-color: var(--accent); color: var(--accent); }
-    .icon-btn.active { border-color: var(--accent); color: var(--accent); }
+
+    #pause-end-select {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      height: 32px;
+      padding: 0 6px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: .8rem;
+      flex-shrink: 0;
+    }
+    #pause-end-select:hover { border-color: var(--accent); }
+    #pause-end-select option { background: var(--surface); }
 
     /* loading spinner shown while frames are fetching */
     .spinner {
@@ -280,7 +293,13 @@
   </div>
   <div class="player-controls">
     <button class="icon-btn" id="play-pause-btn" onclick="togglePlay()" title="Space">▶</button>
-    <button class="icon-btn" id="pause-end-btn" onclick="togglePauseAtEnd()" title="Pause at latest frame">⏸ latest</button>
+    <select id="pause-end-select" onchange="setPauseEnd(this.value)" title="Pause at latest frame">
+      <option value="0">loop</option>
+      <option value="1000">hold 1s</option>
+      <option value="2000">hold 2s</option>
+      <option value="3000">hold 3s</option>
+      <option value="5000">hold 5s</option>
+    </select>
     <input type="range" id="scrubbar" min="0" value="0"
            oninput="scrub(this.value)" onchange="scrub(this.value)">
     <span id="frame-ts">—</span>
@@ -306,9 +325,8 @@
   let pPlaying = false;
   let pTimer  = null;
   let pFps    = 8;
-  let pPauseAtEnd  = false;
-  let pAtEndHold   = false;
-  const PAUSE_END_MS = 2000;
+  let pPauseEndMs = 0;
+  let pAtEndHold  = false;
 
   async function openPlayer(sourceId, name) {
     const modal    = document.getElementById('player-modal');
@@ -371,9 +389,9 @@
       if (pAtEndHold) return;
       pIndex = (pIndex + 1) % pFrames.length;
       updateFrame();
-      if (pPauseAtEnd && pIndex === pFrames.length - 1) {
+      if (pPauseEndMs > 0 && pIndex === pFrames.length - 1) {
         pAtEndHold = true;
-        setTimeout(() => { pAtEndHold = false; }, PAUSE_END_MS);
+        setTimeout(() => { pAtEndHold = false; }, pPauseEndMs);
       }
     }, 1000 / pFps);
   }
@@ -385,9 +403,8 @@
     if (pTimer) { clearInterval(pTimer); pTimer = null; }
   }
 
-  function togglePauseAtEnd() {
-    pPauseAtEnd = !pPauseAtEnd;
-    document.getElementById('pause-end-btn').classList.toggle('active', pPauseAtEnd);
+  function setPauseEnd(val) {
+    pPauseEndMs = parseInt(val);
   }
 
   function togglePlay() { pPlaying ? stopPlay() : startPlay(); }
