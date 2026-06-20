@@ -2,7 +2,7 @@
    Also included inline by index.html on first render. #}
 <div class="tile" data-source="{{ source.id }}"
      hx-get="/tile/{{ source.id }}"
-     hx-trigger="every 60s"
+     hx-trigger="every 300s"
      hx-target="this"
      hx-swap="outerHTML"
      onclick="openPlayer('{{ source.id }}', '{{ source.name }}')">

@@ -379,6 +379,18 @@
     if (pPlaying) startPlay();
   }
 
+  // SSE — update tiles instantly when fetcher saves a new image
+  // Wrapped in DOMContentLoaded so htmx (defer) is guaranteed loaded first
+  document.addEventListener('DOMContentLoaded', () => {
+    const sse = new EventSource('/api/events');
+    sse.onmessage = e => {
+      const sourceId = e.data.trim();
+      const tile = document.querySelector(`[data-source="${sourceId}"]`);
+      if (tile) htmx.ajax('GET', `/tile/${sourceId}`, {target: tile, swap: 'outerHTML'});
+    };
+    // EventSource reconnects automatically on error — nothing to do here
+  });
+
   // keyboard shortcuts
   document.addEventListener('keydown', e => {
     if (!document.getElementById('player-modal').open) return;

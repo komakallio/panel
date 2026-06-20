@@ -4,11 +4,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from .config import load_settings, load_sources
+from .events import event_stream
 from .overlay import render_overlays
 from .scheduler import start_scheduler, stop_scheduler
 
@@ -60,6 +61,18 @@ async def tile(request: Request, source_id: str):
     ctx = _build_tile_ctx(source)
     ctx["request"] = request
     return templates.TemplateResponse("tile.html", ctx)
+
+
+@app.get("/api/events")
+async def events():
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",  # tells nginx not to buffer this stream
+        },
+    )
 
 
 @app.get("/api/frames/{source_id}")
