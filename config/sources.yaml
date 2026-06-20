@@ -82,6 +82,11 @@ sources:
   # ── Sat24 Finland ─────────────────────────────────────────────────────────
   # All four sources share a single sat24.com page fetch (cached 90s).
   # Images are composite tiles from imn-rust-lb.infoplaza.io at zoom 6.
+  #
+  # Tile extent: zoom 6, x=[33,40), y=[14,20) → exact tile-derived bounds:
+  #   west=5.625°E  east=45.0°E  north=70.6126°N  south=55.7766°N
+  #   image 1792×1536 px (7×6 tiles at 256 px each), center 25.3125°E 64.1681°N
+  # Border overlay uses the same center+zoom so it aligns pixel-for-pixel.
 
   - id: sat24_vis
     name: "Sat24 Visible"
@@ -94,10 +99,10 @@ sources:
       width: 800
       height: 640
     link: "https://www.sat24.com/en-gb/country/fi"
-    # Tile extent: zoom 6, x=[33,40], y=[14,20] → exact geographic bounds
+    border_url: "https://maptiler.infoplaza.io/api/maps/Border/static/25.3125,64.1681,6/1792x1536.png?attribution=false"
     geo_bounds:
-      north: 71.1
-      south: 56.5
+      north: 70.6126
+      south: 55.7766
       west: 5.625
       east: 45.0
     overlays:

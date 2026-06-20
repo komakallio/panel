@@ -13,6 +13,10 @@
   {% else %}
     <div class="no-image">fetching…</div>
   {% endif %}
+  {% if source.border_url and has_image %}
+    <img class="tile-border" src="{{ source.border_url }}"
+         alt="" aria-hidden="true" loading="lazy">
+  {% endif %}
 
   <div class="overlays" onclick="event.stopPropagation()">
     {% for ov in overlays %}

@@ -252,6 +252,30 @@
     #pause-end-select:hover { border-color: var(--accent); }
     #pause-end-select option { background: var(--surface); }
 
+    /* ── Border overlay ── */
+    .tile-border {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      aspect-ratio: 4/3;
+      object-fit: contain;
+      pointer-events: none;
+    }
+    .borders-off .tile-border { display: none; }
+
+    #border-btn { font-size: .75rem; }
+    #border-btn.active { color: var(--accent); border-color: var(--accent); }
+
+    #player-border {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      pointer-events: none;
+    }
+    .borders-off #player-border { display: none; }
+
     /* loading spinner shown while frames are fetching */
     .spinner {
       display: none;
@@ -269,6 +293,7 @@
 
 <header>
   <h1>KK Dashboard</h1>
+  <button class="icon-btn active" id="border-btn" onclick="toggleBorders()" title="Toggle border overlay">Borders</button>
   <span id="clock"></span>
 </header>
 
@@ -289,6 +314,7 @@
   <div class="player-body">
     <div class="spinner" id="player-spinner">loading frames…</div>
     <img id="player-img" src="" alt="" style="display:none">
+    <img id="player-border" src="" alt="" aria-hidden="true" style="display:none">
     <div id="player-overlays" class="overlays"></div>
   </div>
   <div class="player-controls">
@@ -319,6 +345,12 @@
   tick();
   setInterval(tick, 1000);
 
+  // ── Border toggle ──
+  function toggleBorders() {
+    const on = document.body.classList.toggle('borders-off');
+    document.getElementById('border-btn').classList.toggle('active', !on);
+  }
+
   // ── Player state ──
   let pFrames = [];
   let pIndex  = 0;
@@ -334,6 +366,11 @@
     const img      = document.getElementById('player-img');
 
     document.getElementById('player-title').textContent = name;
+    const borderImg = document.getElementById('player-border');
+    const tileBorder = document.querySelector(`[data-source="${sourceId}"] .tile-border`);
+    borderImg.src = tileBorder ? tileBorder.src : '';
+    borderImg.style.display = tileBorder ? 'block' : 'none';
+
     spinner.classList.add('active');
     img.style.display = 'none';
     modal.showModal();
@@ -369,6 +406,8 @@
   function closePlayer() {
     stopPlay();
     document.getElementById('player-modal').close();
+    const b = document.getElementById('player-border');
+    b.src = ''; b.style.display = 'none';
     pFrames = [];
   }
 

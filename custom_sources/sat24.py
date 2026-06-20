@@ -4,9 +4,7 @@ Custom source: sat24.com composite satellite/radar images for Finland.
 All four sat24 sources share a single page fetch (cached 90s) so the
 scheduler firing them close together only causes one HTTP request.
 
-The Infoplaza/Maptiler border+coast overlay is fetched once and composited
-server-side (Pillow alpha_composite) so borders appear in the animation
-player too.
+Border/coast overlays are rendered browser-side (see sources.yaml border_url).
 
 Source YAML must include:
     type: custom
@@ -33,19 +31,9 @@ log = logging.getLogger(__name__)
 SAT24_PAGE  = "https://www.sat24.com/en-gb/country/fi"
 RUST_LAYERS = "https://imn-rust-lb.infoplaza.io/v4/nowcast/tiles"
 
-# Center+zoom that matches the sat24 euXxx tile extent (zoom 6, tiles x=[33,40] y=[14,20])
-# → west=5.625°E, east=45.0°E, north≈71.1°N, south≈56.5°N
-_BORDER_BASE = (
-    "https://maptiler.infoplaza.io/api/maps/Border/static/"
-    "25.3125,63.8,6/{w}x{h}.png?attribution=false"
-)
-
-_page_cache:   tuple[str, float] | None = None
-_page_lock   = asyncio.Lock()
-_CACHE_TTL   = 90   # seconds — all four sources share one page fetch
-
-_border_cache: bytes | None = None
-_border_lock = asyncio.Lock()
+_page_cache: tuple[str, float] | None = None
+_page_lock  = asyncio.Lock()
+_CACHE_TTL  = 90  # seconds — all four sources share one page fetch
 
 
 async def _get_page() -> str:
@@ -59,25 +47,6 @@ async def _get_page() -> str:
         _page_cache = (resp.text, time.monotonic())
         log.debug("sat24: page fetched and cached")
         return _page_cache[0]
-
-
-async def _get_border(width: int, height: int) -> bytes | None:
-    """Fetch border+coast PNG once; cached for the process lifetime."""
-    global _border_cache
-    async with _border_lock:
-        if _border_cache is not None:
-            return _border_cache
-        url = _BORDER_BASE.format(w=width, h=height)
-        try:
-            async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
-                resp = await client.get(url)
-                resp.raise_for_status()
-            _border_cache = resp.content
-            log.info("sat24: border overlay cached (%d bytes)", len(_border_cache))
-            return _border_cache
-        except Exception as exc:
-            log.warning("sat24: border fetch failed: %s", exc)
-            return None
 
 
 def _latest_image_url(html: str, layer_key: str) -> str | None:
@@ -140,16 +109,6 @@ async def fetch(source: dict, archive_root: Path) -> None:
     tw, th = thumb.get("width", 640), thumb.get("height", 640)
     try:
         img = Image.open(io.BytesIO(data)).convert("RGB")
-        natural_size = img.size  # e.g. (1792, 1536) — fetch border at this resolution
-
-        border_data = await _get_border(*natural_size)
-        if border_data:
-            border_img = Image.open(io.BytesIO(border_data)).convert("RGBA")
-            if border_img.size != natural_size:
-                border_img = border_img.resize(natural_size, Image.LANCZOS)
-            composited = Image.alpha_composite(img.convert("RGBA"), border_img)
-            img = composited.convert("RGB")
-
         img.thumbnail((tw, th), Image.LANCZOS)
         buf = io.BytesIO()
         img.save(buf, format="JPEG", quality=88)
