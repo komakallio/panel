@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KK Dashboard</title>
+  <script src="https://unpkg.com/htmx.org@1.9.12" defer></script>
+  <style>
+    :root {
+      --bg:      #111827;
+      --surface: #1f2937;
+      --border:  rgba(255,255,255,0.08);
+      --text:    #f9fafb;
+      --muted:   #9ca3af;
+      --accent:  #3b82f6;
+      --green:   #86efac;
+      --red:     #f87171;
+      --yellow:  #fde68a;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, sans-serif;
+      padding: 10px;
+    }
+
+    /* ── Header ── */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 4px 10px;
+    }
+    header h1 { font-size: 1rem; font-weight: 600; letter-spacing: .04em; }
+    #clock { font-size: .8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+    /* ── Grid ── */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 10px;
+    }
+
+    /* ── Tile ── */
+    .tile {
+      position: relative;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: border-color .15s;
+    }
+    .tile:hover { border-color: rgba(255,255,255,.22); }
+
+    .tile img {
+      display: block;
+      width: 100%;
+      aspect-ratio: 4/3;
+      object-fit: contain;
+      background: #000;
+    }
+
+    .no-image {
+      aspect-ratio: 4/3;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: .85rem;
+      background: #000;
+    }
+
+    /* ── Overlays ── */
+    .overlays {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+    .overlay {
+      position: absolute;
+      font-size: .7rem;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 3px;
+      background: rgba(0,0,0,.55);
+      backdrop-filter: blur(3px);
+      pointer-events: auto;
+      line-height: 1.4;
+    }
+    .overlay.top-right    { top: 7px; right: 7px; }
+    .overlay.top-left     { top: 7px; left: 7px;  }
+    .overlay.bottom-right { bottom: 36px; right: 7px; }
+    .overlay.bottom-left  { bottom: 36px; left: 7px;  }
+
+    .overlay.age  { color: var(--green); }
+    .overlay.age.stale { color: var(--red); }
+    .overlay.label { color: var(--yellow); }
+
+    .overlay.marker {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      color: #fff;
+      font-size: .65rem;
+      text-shadow: 0 0 4px #000;
+      background: none;
+      backdrop-filter: none;
+    }
+    .overlay.marker .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--red);
+      border: 1px solid #fff;
+      flex-shrink: 0;
+    }
+
+    /* ── Tile footer ── */
+    .tile-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5px 8px;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      min-height: 32px;
+    }
+    .tile-name {
+      font-size: .75rem;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-decoration: none;
+    }
+    a.tile-name:hover { color: var(--text); }
+
+    .anim-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 2px 9px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: .72rem;
+      flex-shrink: 0;
+      margin-left: 6px;
+      transition: color .15s, border-color .15s;
+    }
+    .anim-btn:hover { color: var(--text); border-color: var(--accent); }
+
+    /* ── Animation modal ── */
+    #player-modal {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0;
+      width: min(900px, 95vw);
+      max-height: 95vh;
+      color: var(--text);
+      overflow: hidden;
+    }
+    #player-modal::backdrop {
+      background: rgba(0,0,0,.85);
+      backdrop-filter: blur(6px);
+    }
+
+    .player-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    #player-title { font-size: .9rem; font-weight: 600; }
+
+    .player-body {
+      position: relative;
+      background: #000;
+      line-height: 0;
+    }
+    #player-img {
+      display: block;
+      width: 100%;
+      max-height: 70vh;
+      object-fit: contain;
+    }
+    #player-overlays {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .player-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-top: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    #scrubbar {
+      flex: 1;
+      min-width: 120px;
+      accent-color: var(--accent);
+    }
+    #frame-ts {
+      font-size: .75rem;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+      min-width: 140px;
+    }
+    #fps-label { font-size: .75rem; color: var(--muted); white-space: nowrap; }
+    #fps-slider { width: 70px; accent-color: var(--accent); }
+
+    .icon-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text);
+      width: 32px; height: 32px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: .9rem;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .icon-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* loading spinner shown while frames are fetching */
+    .spinner {
+      display: none;
+      width: 100%;
+      aspect-ratio: 4/3;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: .85rem;
+    }
+    .spinner.active { display: flex; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>KK Dashboard</h1>
+  <span id="clock"></span>
+</header>
+
+<div class="grid">
+  {% for tile in tiles %}
+    {% with source=tile.source, has_image=tile.has_image, overlays=tile.overlays, now=tile.now %}
+      {% include "tile.html" %}
+    {% endwith %}
+  {% endfor %}
+</div>
+
+<!-- ── Animation player modal ── -->
+<dialog id="player-modal">
+  <div class="player-header">
+    <span id="player-title"></span>
+    <button class="icon-btn" onclick="closePlayer()" title="Close (Esc)">✕</button>
+  </div>
+  <div class="player-body">
+    <div class="spinner" id="player-spinner">loading frames…</div>
+    <img id="player-img" src="" alt="" style="display:none">
+    <div id="player-overlays" class="overlays"></div>
+  </div>
+  <div class="player-controls">
+    <button class="icon-btn" id="play-pause-btn" onclick="togglePlay()" title="Space">▶</button>
+    <input type="range" id="scrubbar" min="0" value="0"
+           oninput="scrub(this.value)" onchange="scrub(this.value)">
+    <span id="frame-ts">—</span>
+    <label id="fps-label">
+      <input type="range" id="fps-slider" min="1" max="24" value="8"
+             oninput="setFps(this.value)"> <span id="fps-val">8</span> fps
+    </label>
+  </div>
+</dialog>
+
+<script>
+  // ── Clock ──
+  function tick() {
+    document.getElementById('clock').textContent =
+      new Date().toUTCString().replace('GMT', 'UTC');
+  }
+  tick();
+  setInterval(tick, 1000);
+
+  // ── Player state ──
+  let pFrames = [];
+  let pIndex  = 0;
+  let pPlaying = false;
+  let pTimer  = null;
+  let pFps    = 8;
+
+  async function openPlayer(sourceId, name) {
+    const modal    = document.getElementById('player-modal');
+    const spinner  = document.getElementById('player-spinner');
+    const img      = document.getElementById('player-img');
+
+    document.getElementById('player-title').textContent = name;
+    spinner.classList.add('active');
+    img.style.display = 'none';
+    modal.showModal();
+
+    try {
+      const resp = await fetch(`/api/frames/${sourceId}?n=60`);
+      const data = await resp.json();
+      pFrames = data.frames;
+    } catch(e) {
+      spinner.textContent = 'Failed to load frames.';
+      return;
+    }
+
+    spinner.classList.remove('active');
+    if (pFrames.length === 0) {
+      spinner.textContent = 'No frames archived yet.';
+      spinner.classList.add('active');
+      return;
+    }
+
+    img.style.display = 'block';
+
+    // preload all frames
+    pFrames.forEach(f => { const i = new Image(); i.src = f.url; });
+
+    const scrubbar = document.getElementById('scrubbar');
+    scrubbar.max = pFrames.length - 1;
+    pIndex = 0;
+    updateFrame();
+    startPlay();
+  }
+
+  function closePlayer() {
+    stopPlay();
+    document.getElementById('player-modal').close();
+    pFrames = [];
+  }
+
+  function updateFrame() {
+    if (!pFrames.length) return;
+    const f = pFrames[pIndex];
+    document.getElementById('player-img').src = f.url;
+    document.getElementById('scrubbar').value = pIndex;
+    document.getElementById('frame-ts').textContent = f.ts;
+  }
+
+  function startPlay() {
+    pPlaying = true;
+    document.getElementById('play-pause-btn').textContent = '⏸';
+    if (pTimer) clearInterval(pTimer);
+    pTimer = setInterval(() => {
+      pIndex = (pIndex + 1) % pFrames.length;
+      updateFrame();
+    }, 1000 / pFps);
+  }
+
+  function stopPlay() {
+    pPlaying = false;
+    document.getElementById('play-pause-btn').textContent = '▶';
+    if (pTimer) { clearInterval(pTimer); pTimer = null; }
+  }
+
+  function togglePlay() { pPlaying ? stopPlay() : startPlay(); }
+
+  function scrub(val) {
+    pIndex = parseInt(val);
+    updateFrame();
+  }
+
+  function setFps(val) {
+    pFps = parseInt(val);
+    document.getElementById('fps-val').textContent = val;
+    if (pPlaying) startPlay();
+  }
+
+  // keyboard shortcuts
+  document.addEventListener('keydown', e => {
+    if (!document.getElementById('player-modal').open) return;
+    if (e.key === 'Escape')      { closePlayer(); return; }
+    if (e.key === ' ')           { e.preventDefault(); togglePlay(); return; }
+    if (e.key === 'ArrowRight')  { e.preventDefault(); pIndex = Math.min(pIndex+1, pFrames.length-1); updateFrame(); }
+    if (e.key === 'ArrowLeft')   { e.preventDefault(); pIndex = Math.max(pIndex-1, 0); updateFrame(); }
+  });
+</script>
+</body>
+</html>

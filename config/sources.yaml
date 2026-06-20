@@ -1,0 +1,91 @@
+# Add / remove sources here — no Python needed for standard http_image sources.
+# type: http_image   — fetch a URL, archive, serve.
+# type: generated    — run a Python function to produce the image.
+# type: custom       — custom fetch logic in custom_sources/<module>.py
+#
+# interval:   seconds between fetches
+# retention:  hours to keep archived frames
+# thumbnail:  resize to fit within w×h (keeps aspect ratio, no crop)
+# overlays:   rendered in browser, nothing burned into the image file
+#   - type: age           — "3 min ago" badge, turns red when stale
+#   - type: label         — static text label
+#   - type: marker        — lat/lon dot (requires geo_bounds on the source)
+# geo_bounds: enables lat/lon → pixel mapping for marker overlays
+
+sources:
+
+  - id: dyc_aurora
+    name: "FMI Kumpula DYC"
+    type: http_image
+    url: "https://aurora.fmi.fi/public_service/images/latest_DYN.jpg"
+    interval: 300
+    retention: 48
+    thumbnail:
+      width: 640
+      height: 480
+    link: "https://aurora.fmi.fi/public_service/suomi/latest_asc_image.html"
+    overlays:
+      - type: label
+        text: "Kumpula DYC"
+      - type: age
+        stale_after: 1800   # mark red after 30 min (aurora cams go offline)
+
+  - id: sgo_aurora
+    name: "SGO Sodankylä"
+    type: http_image
+    url: "https://www.sgo.fi/Data/RealTime/Kuvat/UCL.jpg"
+    interval: 300
+    retention: 72
+    thumbnail:
+      width: 640
+      height: 480
+    link: "https://sgo.fi/Data/RealTime/allsky.php"
+    overlays:
+      - type: label
+        text: "SGO UCL"
+      - type: age
+        stale_after: 1800
+
+  - id: metsahovi
+    name: "Metsahovi Allsky"
+    type: http_image
+    url: "https://data.metsahovi.fi/allsky/latest_hf.jpeg"
+    interval: 300
+    retention: 72
+    thumbnail:
+      width: 640
+      height: 480
+    link: "https://data.metsahovi.fi/allsky/"
+    overlays:
+      - type: label
+        text: "Metsahovi"
+      - type: age
+        stale_after: 900
+
+  # Example with geo markers — fill in a real satellite image URL when known
+  # - id: sat_ir
+  #   name: "Satellite IR"
+  #   type: http_image
+  #   url: "https://example.com/sat_ir_latest.gif"
+  #   interval: 900
+  #   retention: 72
+  #   thumbnail:
+  #     width: 640
+  #     height: 480
+  #   geo_bounds:
+  #     north: 72.0
+  #     south: 52.0
+  #     west:  10.0
+  #     east:  40.0
+  #   overlays:
+  #     - type: label
+  #       text: "Sat IR"
+  #     - type: age
+  #     - type: marker
+  #       label: "KK"
+  #       lat: 60.17
+  #       lon: 24.39
+  #     - type: marker
+  #       label: "SGO"
+  #       lat: 67.37
+  #       lon: 26.63

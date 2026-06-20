@@ -1,0 +1,44 @@
+{# Single tile fragment — returned by /tile/{source_id} for HTMX refresh.
+   Also included inline by index.html on first render. #}
+<div class="tile" data-source="{{ source.id }}"
+     hx-get="/tile/{{ source.id }}"
+     hx-trigger="every 60s"
+     hx-target="this"
+     hx-swap="outerHTML"
+     onclick="openPlayer('{{ source.id }}', '{{ source.name }}')">
+
+  {% if has_image %}
+    <img src="/static/{{ source.id }}/latest.jpg?t={{ now }}"
+         alt="{{ source.name }}" loading="lazy">
+  {% else %}
+    <div class="no-image">fetching…</div>
+  {% endif %}
+
+  <div class="overlays" onclick="event.stopPropagation()">
+    {% for ov in overlays %}
+      {% if ov.type == "age" %}
+        <span class="overlay age {{ ov.position }}{% if ov.stale %} stale{% endif %}">
+          {{ ov.text }}
+        </span>
+      {% elif ov.type == "label" %}
+        <span class="overlay label {{ ov.position }}">{{ ov.text }}</span>
+      {% elif ov.type == "marker" %}
+        <div class="overlay marker" style="left:{{ ov.x_pct }}%;top:{{ ov.y_pct }}%">
+          <span class="dot"></span>{{ ov.label }}
+        </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+
+  <div class="tile-footer" onclick="event.stopPropagation()">
+    {% if source.link %}
+      <a class="tile-name" href="{{ source.link }}" target="_blank" rel="noopener">
+        {{ source.name }}
+      </a>
+    {% else %}
+      <span class="tile-name">{{ source.name }}</span>
+    {% endif %}
+    <button class="anim-btn"
+            onclick="openPlayer('{{ source.id }}', '{{ source.name }}')">▶ animate</button>
+  </div>
+</div>

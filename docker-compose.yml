@@ -1,0 +1,24 @@
+services:
+  app:
+    build: .
+    volumes:
+      - ./archive:/app/archive          # images persist outside container
+      - ./config:/app/config:ro         # edit sources.yaml without rebuild
+      - ./custom_sources:/app/custom_sources:ro
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/Helsinki
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./archive:/app/archive:ro       # nginx serves images directly
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
+    depends_on:
+      - app
+    restart: unless-stopped

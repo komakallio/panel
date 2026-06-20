@@ -1,0 +1,2 @@
+archive_dir: archive        # relative to working dir, or absolute path
+static_url_prefix: /static  # must match nginx location
