@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+
+# Runtime state
+archive/
+*.log
+*.lock
+
+# Secrets / local config overrides
+config/settings.local.yaml
+.env
+
+# OS
+.DS_Store
+Thumbs.db
