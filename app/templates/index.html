@@ -156,6 +156,11 @@
 
     /* ── Animation modal ── */
     #player-modal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      margin: 0;
       background: var(--bg);
       border: 1px solid var(--border);
       border-radius: 12px;
@@ -378,6 +383,11 @@
     document.getElementById('fps-val').textContent = val;
     if (pPlaying) startPlay();
   }
+
+  // Close modal when clicking the backdrop (outside the dialog content)
+  document.getElementById('player-modal').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closePlayer();
+  });
 
   // SSE — update tiles instantly when fetcher saves a new image
   // Wrapped in DOMContentLoaded so htmx (defer) is guaranteed loaded first
