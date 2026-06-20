@@ -94,6 +94,12 @@ sources:
       width: 800
       height: 640
     link: "https://www.sat24.com/en-gb/country/fi"
+    # Tile extent: zoom 6, x=[33,40], y=[14,20] → exact geographic bounds
+    geo_bounds:
+      north: 71.1
+      south: 56.5
+      west: 5.625
+      east: 45.0
     overlays:
       - type: label
         text: "Sat24 VIS"
@@ -111,6 +117,11 @@ sources:
       width: 800
       height: 640
     link: "https://www.sat24.com/en-gb/country/fi"
+    geo_bounds:
+      north: 71.1
+      south: 56.5
+      west: 5.625
+      east: 45.0
     overlays:
       - type: label
         text: "Sat24 IR"
@@ -128,6 +139,11 @@ sources:
       width: 800
       height: 640
     link: "https://www.sat24.com/en-gb/country/fi"
+    geo_bounds:
+      north: 71.1
+      south: 56.5
+      west: 5.625
+      east: 45.0
     overlays:
       - type: label
         text: "Sat24 Micro"
@@ -145,6 +161,11 @@ sources:
       width: 800
       height: 640
     link: "https://www.sat24.com/en-gb/country/fi"
+    geo_bounds:
+      north: 71.1
+      south: 56.5
+      west: 5.625
+      east: 45.0
     overlays:
       - type: label
         text: "Sat24 Radar+Sat"

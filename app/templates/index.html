@@ -425,6 +425,58 @@
     if (e.target === e.currentTarget) closePlayer();
   });
 
+  // ── Geolocation marker ──
+  // Placed on every tile that has data-n/s/e/w (i.e. geo_bounds in source config).
+  // Accounts for object-fit:contain pillarboxing so the dot lands on the image pixels.
+  let _geoLat = null, _geoLon = null;
+
+  function _renderedImageRect(imgEl) {
+    const el = imgEl.getBoundingClientRect();
+    const nr = imgEl.naturalWidth / imgEl.naturalHeight;
+    const er = el.width / el.height;
+    if (nr > er) {
+      // image wider than container — letterbox top/bottom
+      const h = el.width / nr;
+      return { l: el.left, t: el.top + (el.height - h) / 2, w: el.width, h };
+    } else {
+      // image narrower than container — pillarbox left/right
+      const w = el.height * nr;
+      return { l: el.left + (el.width - w) / 2, t: el.top, w, h: el.height };
+    }
+  }
+
+  function placeGeoMarkers(root) {
+    if (_geoLat === null) return;
+    (root || document).querySelectorAll('.geo-loc-marker').forEach(m => {
+      const n = +m.dataset.n, s = +m.dataset.s;
+      const w = +m.dataset.w, e = +m.dataset.e;
+      if (_geoLat < s || _geoLat > n || _geoLon < w || _geoLon > e) return;
+      const imgEl = m.closest('.tile').querySelector('img');
+      if (!imgEl || !imgEl.naturalWidth) {
+        imgEl?.addEventListener('load', () => placeGeoMarkers(m.closest('.tile')), { once: true });
+        return;
+      }
+      const ir  = _renderedImageRect(imgEl);
+      const ovr = m.parentElement.getBoundingClientRect();
+      const xPx = (ir.l - ovr.left) + (_geoLon - w) / (e - w) * ir.w;
+      const yPx = (ir.t - ovr.top)  + (n - _geoLat) / (n - s) * ir.h;
+      m.style.left    = xPx + 'px';
+      m.style.top     = yPx + 'px';
+      m.style.display = '';
+    });
+  }
+
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      pos => { _geoLat = pos.coords.latitude; _geoLon = pos.coords.longitude; placeGeoMarkers(); },
+      null,
+      { maximumAge: 300_000, timeout: 10_000 }
+    );
+  }
+
+  // Re-place markers after HTMX tile swaps
+  document.addEventListener('htmx:afterSwap', () => placeGeoMarkers());
+
   // SSE — update tiles instantly when fetcher saves a new image
   // Wrapped in DOMContentLoaded so htmx (defer) is guaranteed loaded first
   document.addEventListener('DOMContentLoaded', () => {

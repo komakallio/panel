@@ -4,6 +4,10 @@ Custom source: sat24.com composite satellite/radar images for Finland.
 All four sat24 sources share a single page fetch (cached 90s) so the
 scheduler firing them close together only causes one HTTP request.
 
+The Infoplaza/Maptiler border+coast overlay is fetched once and composited
+server-side (Pillow alpha_composite) so borders appear in the animation
+player too.
+
 Source YAML must include:
     type: custom
     module: sat24
@@ -26,12 +30,22 @@ from app.events import notify_new_image
 
 log = logging.getLogger(__name__)
 
-SAT24_PAGE = "https://www.sat24.com/en-gb/country/fi"
+SAT24_PAGE  = "https://www.sat24.com/en-gb/country/fi"
 RUST_LAYERS = "https://imn-rust-lb.infoplaza.io/v4/nowcast/tiles"
 
-_page_cache: tuple[str, float] | None = None
-_page_lock = asyncio.Lock()
-_CACHE_TTL = 90  # seconds — all four sources share this
+# Center+zoom that matches the sat24 euXxx tile extent (zoom 6, tiles x=[33,40] y=[14,20])
+# → west=5.625°E, east=45.0°E, north≈71.1°N, south≈56.5°N
+_BORDER_BASE = (
+    "https://maptiler.infoplaza.io/api/maps/Border/static/"
+    "25.3125,63.8,6/{w}x{h}.png?attribution=false"
+)
+
+_page_cache:   tuple[str, float] | None = None
+_page_lock   = asyncio.Lock()
+_CACHE_TTL   = 90   # seconds — all four sources share one page fetch
+
+_border_cache: bytes | None = None
+_border_lock = asyncio.Lock()
 
 
 async def _get_page() -> str:
@@ -47,6 +61,25 @@ async def _get_page() -> str:
         return _page_cache[0]
 
 
+async def _get_border(width: int, height: int) -> bytes | None:
+    """Fetch border+coast PNG once; cached for the process lifetime."""
+    global _border_cache
+    async with _border_lock:
+        if _border_cache is not None:
+            return _border_cache
+        url = _BORDER_BASE.format(w=width, h=height)
+        try:
+            async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+                resp = await client.get(url)
+                resp.raise_for_status()
+            _border_cache = resp.content
+            log.info("sat24: border overlay cached (%d bytes)", len(_border_cache))
+            return _border_cache
+        except Exception as exc:
+            log.warning("sat24: border fetch failed: %s", exc)
+            return None
+
+
 def _latest_image_url(html: str, layer_key: str) -> str | None:
     """Return the most recent composite image URL for layer_key, or None."""
     marker = f"radarAvaliableLayers[0]['{layer_key}']"
@@ -55,13 +88,11 @@ def _latest_image_url(html: str, layer_key: str) -> str | None:
         log.warning("sat24: layer key %r not found in page", layer_key)
         return None
 
-    # Scope to this layer's block (stop before the next radarAvaliableLayers assignment)
     chunk = html[idx: idx + 60_000]
     next_layer = chunk.find("radarAvaliableLayers[0][", len(marker))
     if next_layer > 0:
         chunk = chunk[:next_layer]
 
-    # Find all composite image URLs in this block; last entry is most recent frame
     urls = re.findall(r'"url":"([^"]+)"', chunk)
     if not urls:
         log.warning("sat24: no urls found for layer %r", layer_key)
@@ -106,10 +137,20 @@ async def fetch(source: dict, archive_root: Path) -> None:
         return
 
     thumb = source.get("thumbnail", {})
-    w, h = thumb.get("width", 640), thumb.get("height", 640)
+    tw, th = thumb.get("width", 640), thumb.get("height", 640)
     try:
         img = Image.open(io.BytesIO(data)).convert("RGB")
-        img.thumbnail((w, h), Image.LANCZOS)
+        natural_size = img.size  # e.g. (1792, 1536) — fetch border at this resolution
+
+        border_data = await _get_border(*natural_size)
+        if border_data:
+            border_img = Image.open(io.BytesIO(border_data)).convert("RGBA")
+            if border_img.size != natural_size:
+                border_img = border_img.resize(natural_size, Image.LANCZOS)
+            composited = Image.alpha_composite(img.convert("RGBA"), border_img)
+            img = composited.convert("RGB")
+
+        img.thumbnail((tw, th), Image.LANCZOS)
         buf = io.BytesIO()
         img.save(buf, format="JPEG", quality=88)
         img_bytes = buf.getvalue()

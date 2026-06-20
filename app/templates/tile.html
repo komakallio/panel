@@ -28,6 +28,16 @@
         </div>
       {% endif %}
     {% endfor %}
+    {% if source.geo_bounds %}
+    <div class="overlay marker geo-loc-marker"
+         style="display:none"
+         data-n="{{ source.geo_bounds.north }}"
+         data-s="{{ source.geo_bounds.south }}"
+         data-w="{{ source.geo_bounds.west }}"
+         data-e="{{ source.geo_bounds.east }}">
+      <span class="dot" style="background:var(--accent);border-color:var(--accent)"></span>
+    </div>
+    {% endif %}
   </div>
 
   <div class="tile-footer" onclick="event.stopPropagation()">
