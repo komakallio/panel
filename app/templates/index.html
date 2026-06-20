@@ -227,14 +227,17 @@
       background: none;
       border: 1px solid var(--border);
       color: var(--text);
-      width: 32px; height: 32px;
+      min-width: 32px; height: 32px;
+      padding: 0 7px;
       border-radius: 6px;
       cursor: pointer;
       font-size: .9rem;
       display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
+      white-space: nowrap;
     }
-    .icon-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .icon-btn:hover  { border-color: var(--accent); color: var(--accent); }
+    .icon-btn.active { border-color: var(--accent); color: var(--accent); }
 
     /* loading spinner shown while frames are fetching */
     .spinner {
@@ -277,6 +280,7 @@
   </div>
   <div class="player-controls">
     <button class="icon-btn" id="play-pause-btn" onclick="togglePlay()" title="Space">▶</button>
+    <button class="icon-btn" id="pause-end-btn" onclick="togglePauseAtEnd()" title="Pause at latest frame">⏸ latest</button>
     <input type="range" id="scrubbar" min="0" value="0"
            oninput="scrub(this.value)" onchange="scrub(this.value)">
     <span id="frame-ts">—</span>
@@ -302,6 +306,9 @@
   let pPlaying = false;
   let pTimer  = null;
   let pFps    = 8;
+  let pPauseAtEnd  = false;
+  let pAtEndHold   = false;
+  const PAUSE_END_MS = 2000;
 
   async function openPlayer(sourceId, name) {
     const modal    = document.getElementById('player-modal');
@@ -357,18 +364,30 @@
 
   function startPlay() {
     pPlaying = true;
+    pAtEndHold = false;
     document.getElementById('play-pause-btn').textContent = '⏸';
     if (pTimer) clearInterval(pTimer);
     pTimer = setInterval(() => {
+      if (pAtEndHold) return;
       pIndex = (pIndex + 1) % pFrames.length;
       updateFrame();
+      if (pPauseAtEnd && pIndex === pFrames.length - 1) {
+        pAtEndHold = true;
+        setTimeout(() => { pAtEndHold = false; }, PAUSE_END_MS);
+      }
     }, 1000 / pFps);
   }
 
   function stopPlay() {
     pPlaying = false;
+    pAtEndHold = false;
     document.getElementById('play-pause-btn').textContent = '▶';
     if (pTimer) { clearInterval(pTimer); pTimer = null; }
+  }
+
+  function togglePauseAtEnd() {
+    pPauseAtEnd = !pPauseAtEnd;
+    document.getElementById('pause-end-btn').classList.toggle('active', pPauseAtEnd);
   }
 
   function togglePlay() { pPlaying ? stopPlay() : startPlay(); }
