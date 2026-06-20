@@ -14,6 +14,22 @@
 
 sources:
 
+  - id: kk_allsky
+    name: "Komakallio Allsky"
+    type: http_image
+    url: "https://taivas.komakallio.fi/images/latest.jpg"
+    interval: 60
+    retention: 72
+    thumbnail:
+      width: 640
+      height: 640
+    link: "https://taivas.komakallio.fi"
+    overlays:
+      - type: label
+        text: "KK Allsky"
+      - type: age
+        stale_after: 600
+
   - id: dyc_aurora
     name: "FMI Kumpula DYC"
     type: http_image
