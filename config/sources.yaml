@@ -79,6 +79,78 @@ sources:
       - type: age
         stale_after: 900
 
+  # ── Sat24 Finland ─────────────────────────────────────────────────────────
+  # All four sources share a single sat24.com page fetch (cached 90s).
+  # Images are composite tiles from imn-rust-lb.infoplaza.io at zoom 6.
+
+  - id: sat24_vis
+    name: "Sat24 Visible"
+    type: custom
+    module: sat24
+    sat24_layer: euVisible
+    interval: 300
+    retention: 72
+    thumbnail:
+      width: 800
+      height: 640
+    link: "https://www.sat24.com/en-gb/country/fi"
+    overlays:
+      - type: label
+        text: "Sat24 VIS"
+      - type: age
+        stale_after: 1200
+
+  - id: sat24_ir
+    name: "Sat24 Infrared"
+    type: custom
+    module: sat24
+    sat24_layer: euInfra
+    interval: 300
+    retention: 72
+    thumbnail:
+      width: 800
+      height: 640
+    link: "https://www.sat24.com/en-gb/country/fi"
+    overlays:
+      - type: label
+        text: "Sat24 IR"
+      - type: age
+        stale_after: 1200
+
+  - id: sat24_micro
+    name: "Sat24 Night Microphysics"
+    type: custom
+    module: sat24
+    sat24_layer: euMicro
+    interval: 300
+    retention: 72
+    thumbnail:
+      width: 800
+      height: 640
+    link: "https://www.sat24.com/en-gb/country/fi"
+    overlays:
+      - type: label
+        text: "Sat24 Micro"
+      - type: age
+        stale_after: 1200
+
+  - id: sat24_radar
+    name: "Sat24 Radar+Sat"
+    type: custom
+    module: sat24
+    sat24_layer: euRadarSat
+    interval: 300
+    retention: 72
+    thumbnail:
+      width: 800
+      height: 640
+    link: "https://www.sat24.com/en-gb/country/fi"
+    overlays:
+      - type: label
+        text: "Sat24 Radar+Sat"
+      - type: age
+        stale_after: 1200
+
   # Example with geo markers — fill in a real satellite image URL when known
   # - id: sat_ir
   #   name: "Satellite IR"
