@@ -18,6 +18,7 @@ sources:
     name: "FMI Kumpula DYC"
     type: http_image
     url: "https://aurora.fmi.fi/public_service/images/latest_DYN.jpg"
+    verify_ssl: false   # FMI cert doesn't cover this hostname
     interval: 300
     retention: 48
     thumbnail:

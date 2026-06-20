@@ -16,7 +16,8 @@ async def fetch_http_image(source: dict, archive_root: Path) -> None:
     latest = source_dir / "latest.jpg"
 
     try:
-        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+        verify = source.get("verify_ssl", True)
+        async with httpx.AsyncClient(timeout=30, follow_redirects=True, verify=verify) as client:
             resp = await client.get(source["url"])
             resp.raise_for_status()
         data = resp.content
