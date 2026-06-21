@@ -14,35 +14,44 @@ log = logging.getLogger(__name__)
 async def fetch_http_image(source: dict, archive_root: Path) -> None:
     source_dir = archive_root / source["id"]
     latest = source_dir / "latest.jpg"
-    lm_file = source_dir / "latest.lastmod"   # last seen Last-Modified header
+    etag_file = source_dir / "latest.etag"      # last seen ETag (strong validator)
+    lm_file = source_dir / "latest.lastmod"     # last seen Last-Modified
 
-    headers = {}
+    # Conditional headers for the GET fallback (servers that honour 304).
+    cond = {}
+    if etag_file.exists():
+        cond["If-None-Match"] = etag_file.read_text()
     if latest.exists():
-        headers["If-Modified-Since"] = formatdate(latest.stat().st_mtime, usegmt=True)
+        cond["If-Modified-Since"] = formatdate(latest.stat().st_mtime, usegmt=True)
 
     verify = source.get("verify_ssl", True)
-    last_mod = None
+    etag = last_mod = None
     try:
         async with httpx.AsyncClient(timeout=30, follow_redirects=True, verify=verify) as client:
-            # Cheap HEAD probe first: some servers ignore If-Modified-Since and
-            # re-send the whole image every request, so check Last-Modified and
-            # skip the download when it hasn't changed.
+            # Cheap HEAD probe first: many servers ignore conditional GETs and
+            # re-send the whole image, so compare the strongest validator (ETag,
+            # else Last-Modified) from a HEAD and skip the download if unchanged.
             try:
                 head = await client.head(source["url"])
                 if head.status_code < 400:
+                    etag = head.headers.get("ETag")
                     last_mod = head.headers.get("Last-Modified")
             except Exception:
                 pass
-            if last_mod and lm_file.exists() and lm_file.read_text() == last_mod:
+            if etag and etag_file.exists() and etag_file.read_text() == etag:
+                log.debug("%s: unchanged (ETag)", source["id"])
+                return
+            if not etag and last_mod and lm_file.exists() and lm_file.read_text() == last_mod:
                 log.debug("%s: unchanged (Last-Modified)", source["id"])
                 return
 
-            resp = await client.get(source["url"], headers=headers)
+            resp = await client.get(source["url"], headers=cond)
             if resp.status_code == 304:
                 log.debug("%s: 304 not modified", source["id"])
                 return
             resp.raise_for_status()
             data = resp.content
+            etag = resp.headers.get("ETag", etag)
             last_mod = resp.headers.get("Last-Modified", last_mod)
     except Exception as exc:
         log.warning("fetch %s failed: %s", source["id"], exc)
@@ -54,8 +63,10 @@ async def fetch_http_image(source: dict, archive_root: Path) -> None:
         log.warning("image processing %s failed: %s", source["id"], exc)
         return
 
-    # Record Last-Modified (save_image has created source_dir) so the next HEAD
-    # probe can skip re-downloading identical content.
+    # Cache validators (save_image created source_dir) so the next HEAD probe /
+    # conditional GET can skip re-downloading identical content.
+    if etag:
+        etag_file.write_text(etag)
     if last_mod:
         lm_file.write_text(last_mod)
 
