@@ -65,6 +65,26 @@
       background: #000;
     }
 
+    /* Embedded HTML widget tiles (e.g. twilight chart) — thumbnail opens a modal */
+    .tile-embed { cursor: pointer; }
+    .tile-embed iframe {
+      display: block;
+      width: 100%;
+      aspect-ratio: 4/3;
+      border: 0;
+      background: #000;
+      pointer-events: none;   /* clicks fall through to the tile → openEmbed */
+    }
+    #embed-modal {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      margin: 0; background: var(--bg); border: 1px solid var(--border);
+      border-radius: 12px; padding: 0; width: min(900px, 95vw); max-height: 95vh;
+      color: var(--text); overflow: hidden;
+    }
+    #embed-modal::backdrop { background: rgba(0,0,0,.85); backdrop-filter: blur(6px); }
+    .embed-body { background: #000; line-height: 0; }
+    #embed-frame { display: block; width: 100%; aspect-ratio: 4/3; max-height: 82vh; border: 0; }
+
     .no-image {
       aspect-ratio: 4/3;
       display: flex;
@@ -410,6 +430,16 @@
   </div>
 </dialog>
 
+<dialog id="embed-modal">
+  <div class="player-header">
+    <span id="embed-title"></span>
+    <button class="icon-btn" onclick="closeEmbed()" title="Close (Esc)">✕</button>
+  </div>
+  <div class="embed-body">
+    <iframe id="embed-frame" src="" title=""></iframe>
+  </div>
+</dialog>
+
 <script>
   // ── Clock ──
   function tick() {
@@ -468,6 +498,7 @@
   let pCropMode = true;
   let pCurrentSourceId = null;
   let pRangeHours = 3;   // time window to animate (0 = all archived)
+  let _embedLoc = [60.17, 24.39];   // dashboard location fed to embed widgets ('off' → Komakallio)
 
   // Border is shown unless the global "Borders" toggle is off.
   function _showPlayerBorder(src) {
@@ -804,12 +835,13 @@
 
   function _applyLoc(lat, lon) {
     _geoLat = lat; _geoLon = lon;
-    placeGeoMarkers(); placePlayerMarker();
+    placeGeoMarkers(); placePlayerMarker(); _updateEmbedLocation();
   }
   function _hideMarkers() {
     _geoLat = _geoLon = null;
     document.querySelectorAll('.geo-loc-marker').forEach(m => m.style.display = 'none');
     document.getElementById('player-geo-marker').style.display = 'none';
+    _updateEmbedLocation();
   }
   // Geolocation denied/unavailable → fall back to Komakallio and reflect it in the dropdown.
   function _fallbackKomakallio() {
@@ -828,6 +860,31 @@
     );
   }
   setMarkerSource(document.getElementById('loc-select').value);
+
+  // ── Embedded-widget tiles (e.g. twilight): thumbnail → modal, dashboard-driven location ──
+  function _postLoc(frame) {
+    try { frame.contentWindow.postMessage(
+      { type: 'setLocation', lat: _embedLoc[0], lon: _embedLoc[1], name: '' }, '*'); } catch(e) {}
+  }
+  function embedFrameLoaded(frame) { _postLoc(frame); }
+  function _updateEmbedLocation() {
+    _embedLoc = (_geoLat !== null) ? [_geoLat, _geoLon] : _LOC.komakallio;   // 'off' → Komakallio
+    document.querySelectorAll('.tile-embed-frame').forEach(_postLoc);
+    const m = document.getElementById('embed-modal');
+    if (m && m.open) _postLoc(document.getElementById('embed-frame'));
+  }
+  function openEmbed(id, name, url) {
+    document.getElementById('embed-title').textContent = name;
+    document.getElementById('embed-frame').src =
+      url + '?mode=full&lat=' + _embedLoc[0] + '&lon=' + _embedLoc[1];
+    document.getElementById('embed-modal').showModal();
+  }
+  function closeEmbed() { document.getElementById('embed-modal').close(); }
+  (function () {
+    const em = document.getElementById('embed-modal');
+    em.addEventListener('close', () => { document.getElementById('embed-frame').src = ''; });
+    em.addEventListener('click', e => { if (e.target === e.currentTarget) em.close(); });
+  })();
 
   // Re-place markers and refresh age badges after HTMX tile swaps
   document.addEventListener('htmx:afterSwap', () => { placeGeoMarkers(); updateAges(); });

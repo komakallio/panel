@@ -1,5 +1,21 @@
 {# Single tile fragment — returned by /tile/{source_id} for HTMX refresh.
    Also included inline by index.html on first render. #}
+{% if source.type == "embed" %}
+<div class="tile tile-embed" data-source="{{ source.id }}"
+     onclick="openEmbed('{{ source.id }}', '{{ source.name }}', '{{ source.url }}')">
+  <iframe class="tile-embed-frame" src="{{ source.url }}?mode=thumb"
+          title="{{ source.name }}" loading="lazy" onload="embedFrameLoaded(this)"></iframe>
+  <div class="tile-footer" onclick="event.stopPropagation()">
+    {% if source.link %}
+      <a class="tile-name" href="{{ source.link }}" target="_blank" rel="noopener">{{ source.name }}</a>
+    {% else %}
+      <span class="tile-name">{{ source.name }}</span>
+    {% endif %}
+    <button class="anim-btn"
+            onclick="openEmbed('{{ source.id }}', '{{ source.name }}', '{{ source.url }}')">⤢ open</button>
+  </div>
+</div>
+{% else %}
 <div class="tile" data-source="{{ source.id }}"
      {% if roi_crop %}data-roi="{{ roi_crop | tojson }}"{% endif %}
      {% if source.border_url %}data-full-border="{{ source.border_url }}"{% endif %}
@@ -64,3 +80,4 @@
             onclick="openPlayer('{{ source.id }}', '{{ source.name }}')">▶ animate</button>
   </div>
 </div>
+{% endif %}

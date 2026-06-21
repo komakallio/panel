@@ -46,6 +46,8 @@ app = FastAPI(title="KK Dashboard", lifespan=lifespan)
 
 # Fallback static serving when nginx is not in front (local dev)
 app.mount("/static", StaticFiles(directory=str(archive_path)), name="static")
+# Self-hosted HTML widgets (e.g. the twilight chart) embedded in 'embed' tiles
+app.mount("/widgets", StaticFiles(directory="app/widgets"), name="widgets")
 
 
 def _thumb_border_url(source: dict, roi_crop: dict | None) -> str | None:

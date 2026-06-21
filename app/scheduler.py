@@ -64,6 +64,8 @@ def resolve_fetch_fn(source: dict):
         return fetch_http_image
     if source_type == "custom":
         return _load_custom(source.get("module", source["id"]))
+    if source_type == "embed":
+        return None   # rendered client-side in an iframe; nothing to fetch
     log.warning("unknown source type %r for %s — skipping", source_type, source["id"])
     return None
 

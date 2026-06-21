@@ -33,6 +33,14 @@ sources:
       - type: age
         stale_after: 600
 
+  # Sun & moon altitude / twilight chart — self-hosted copy of
+  # vostok.kapsi.fi/twilight.html, rendered client-side in an embed (iframe) tile.
+  - id: twilight
+    name: "Sun & Moon — Komakallio"
+    type: embed
+    url: "/widgets/twilight.html"
+    link: "https://vostok.kapsi.fi/twilight.html"
+
   - id: metsahovi
     name: "Metsahovi Allsky"
     type: http_image
