@@ -18,7 +18,10 @@ sources:
     name: "Komakallio Allsky"
     type: http_image
     url: "https://taivas.komakallio.fi/images/latest.jpg"
-    interval: 3
+    # Real-time updates arrive via the server's WebSocket push; the poll is just
+    # a slow fallback for when the socket is down.
+    interval: 300
+    push_ws: "wss://taivas.komakallio.fi/ws"
     retention: 72
     thumbnail:
       width: 640

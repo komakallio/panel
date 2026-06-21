@@ -23,18 +23,11 @@ def start_scheduler() -> None:
     for source in sources:
         if roi:
             source["_roi"] = roi   # available to save_image via source dict
-        source_type = source.get("type", "http_image")
         interval = source.get("interval", 300)
         sid = source["id"]
 
-        if source_type == "http_image":
-            fetch_fn = fetch_http_image
-        elif source_type == "custom":
-            fetch_fn = _load_custom(source.get("module", sid))
-            if fetch_fn is None:
-                continue
-        else:
-            log.warning("unknown source type %r for %s — skipping", source_type, sid)
+        fetch_fn = resolve_fetch_fn(source)
+        if fetch_fn is None:
             continue
 
         _scheduler.add_job(
@@ -54,7 +47,7 @@ def start_scheduler() -> None:
             args=[source, archive_root],
             id=f"cleanup_{sid}",
         )
-        log.info("scheduled %s (%s) every %ds", sid, source_type, interval)
+        log.info("scheduled %s (%s) every %ds", sid, source.get("type", "http_image"), interval)
 
     _scheduler.start()
     log.info("scheduler started with %d sources", len(sources))
@@ -62,6 +55,17 @@ def start_scheduler() -> None:
 
 def stop_scheduler() -> None:
     _scheduler.shutdown(wait=False)
+
+
+def resolve_fetch_fn(source: dict):
+    """Return the fetch coroutine for a source, or None if it can't be resolved."""
+    source_type = source.get("type", "http_image")
+    if source_type == "http_image":
+        return fetch_http_image
+    if source_type == "custom":
+        return _load_custom(source.get("module", source["id"]))
+    log.warning("unknown source type %r for %s — skipping", source_type, source["id"])
+    return None
 
 
 def _load_custom(module_name: str):

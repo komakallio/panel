@@ -15,6 +15,7 @@ from .events import event_stream
 from .image_utils import crop_box, geo_to_pixel, merc_y
 from .overlay import render_overlays
 from .scheduler import start_scheduler, stop_scheduler
+from .ws_push import start_push_listeners, stop_push_listeners
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger(__name__)
@@ -30,8 +31,14 @@ templates.env.filters["tojson"] = json.dumps
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    roi = settings.get("roi")
+    if roi:
+        for s in sources:
+            s["_roi"] = roi   # so push-triggered fetches crop like scheduled ones
     start_scheduler()
+    start_push_listeners(sources, archive_path)
     yield
+    await stop_push_listeners()
     stop_scheduler()
 
 
