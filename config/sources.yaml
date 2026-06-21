@@ -18,7 +18,7 @@ sources:
     name: "Komakallio Allsky"
     type: http_image
     url: "https://taivas.komakallio.fi/images/latest.jpg"
-    interval: 15
+    interval: 3
     retention: 72
     thumbnail:
       width: 640
