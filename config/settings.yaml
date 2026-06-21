@@ -1,2 +1,10 @@
 archive_dir: archive        # relative to working dir, or absolute path
 static_url_prefix: /static  # must match nginx location
+
+# Region of interest — used for grid latest.jpg crop and player zoom.
+# thumb_w × thumb_h defines the crop size (4:3 recommended).
+roi:
+  lat: 60.17   # Komakallio
+  lon: 24.39
+  thumb_w: 800
+  thumb_h: 600

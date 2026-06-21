@@ -18,7 +18,7 @@ sources:
     name: "Komakallio Allsky"
     type: http_image
     url: "https://taivas.komakallio.fi/images/latest.jpg"
-    interval: 60
+    interval: 15
     retention: 72
     thumbnail:
       width: 640
@@ -29,39 +29,6 @@ sources:
         text: "KK Allsky"
       - type: age
         stale_after: 600
-
-  - id: dyc_aurora
-    name: "FMI Kumpula DYC"
-    type: http_image
-    url: "https://aurora.fmi.fi/public_service/images/latest_DYN.jpg"
-    verify_ssl: false   # FMI cert doesn't cover this hostname
-    interval: 300
-    retention: 48
-    thumbnail:
-      width: 640
-      height: 480
-    link: "https://aurora.fmi.fi/public_service/suomi/latest_asc_image.html"
-    overlays:
-      - type: label
-        text: "Kumpula DYC"
-      - type: age
-        stale_after: 1800   # mark red after 30 min (aurora cams go offline)
-
-  - id: sgo_aurora
-    name: "SGO Sodankylä"
-    type: http_image
-    url: "https://www.sgo.fi/Data/RealTime/Kuvat/UCL.jpg"
-    interval: 300
-    retention: 72
-    thumbnail:
-      width: 640
-      height: 480
-    link: "https://sgo.fi/Data/RealTime/allsky.php"
-    overlays:
-      - type: label
-        text: "SGO UCL"
-      - type: age
-        stale_after: 1800
 
   - id: metsahovi
     name: "Metsahovi Allsky"
@@ -86,7 +53,8 @@ sources:
   # Tile extent: zoom 6, x=[33,40), y=[14,20) → exact tile-derived bounds:
   #   west=5.625°E  east=45.0°E  north=70.6126°N  south=55.7766°N
   #   image 1792×1536 px (7×6 tiles at 256 px each), center 25.3125°E 64.1681°N
-  # Border overlay uses the same center+zoom so it aligns pixel-for-pixel.
+  # Border overlay uses maptiler zoom 5 (their static API uses 512px tiles, so
+  # their zoom = slippy/256px zoom − 1). Verified pixel-aligned 2026-06-20.
 
   - id: sat24_vis
     name: "Sat24 Visible"
@@ -95,11 +63,8 @@ sources:
     sat24_layer: euVisible
     interval: 300
     retention: 72
-    thumbnail:
-      width: 800
-      height: 640
     link: "https://www.sat24.com/en-gb/country/fi"
-    border_url: "https://maptiler.infoplaza.io/api/maps/Border/static/25.3125,64.1681,6/1792x1536.png?attribution=false"
+    border_url: "https://maptiler.infoplaza.io/api/maps/Border/static/25.3125,64.1681,5/1792x1536.png?attribution=false"
     geo_bounds:
       north: 70.6126
       south: 55.7766
@@ -118,13 +83,11 @@ sources:
     sat24_layer: euInfra
     interval: 300
     retention: 72
-    thumbnail:
-      width: 800
-      height: 640
     link: "https://www.sat24.com/en-gb/country/fi"
+    border_url: "https://maptiler.infoplaza.io/api/maps/Border/static/25.3125,64.1681,5/1792x1536.png?attribution=false"
     geo_bounds:
-      north: 71.1
-      south: 56.5
+      north: 70.6126
+      south: 55.7766
       west: 5.625
       east: 45.0
     overlays:
@@ -140,13 +103,11 @@ sources:
     sat24_layer: euMicro
     interval: 300
     retention: 72
-    thumbnail:
-      width: 800
-      height: 640
     link: "https://www.sat24.com/en-gb/country/fi"
+    border_url: "https://maptiler.infoplaza.io/api/maps/Border/static/25.3125,64.1681,5/1792x1536.png?attribution=false"
     geo_bounds:
-      north: 71.1
-      south: 56.5
+      north: 70.6126
+      south: 55.7766
       west: 5.625
       east: 45.0
     overlays:
@@ -162,13 +123,11 @@ sources:
     sat24_layer: euRadarSat
     interval: 300
     retention: 72
-    thumbnail:
-      width: 800
-      height: 640
     link: "https://www.sat24.com/en-gb/country/fi"
+    border_url: "https://maptiler.infoplaza.io/api/maps/Border/static/25.3125,64.1681,5/1792x1536.png?attribution=false"
     geo_bounds:
-      north: 71.1
-      south: 56.5
+      north: 70.6126
+      south: 55.7766
       west: 5.625
       east: 45.0
     overlays:

@@ -13,18 +13,15 @@ Source YAML must include:
 """
 
 import asyncio
-import hashlib
-import io
 import logging
 import re
 import time
-from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
-from PIL import Image
 
 from app.events import notify_new_image
+from app.image_utils import save_image
 
 log = logging.getLogger(__name__)
 
@@ -87,10 +84,6 @@ async def fetch(source: dict, archive_root: Path) -> None:
     if not url:
         return
 
-    source_dir = archive_root / source_id
-    source_dir.mkdir(parents=True, exist_ok=True)
-    latest = source_dir / "latest.jpg"
-
     try:
         async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
             resp = await client.get(url)
@@ -100,26 +93,14 @@ async def fetch(source: dict, archive_root: Path) -> None:
         log.warning("sat24 %s: image fetch failed: %s", source_id, exc)
         return
 
-    new_hash = hashlib.md5(data).hexdigest()
-    if latest.exists() and hashlib.md5(latest.read_bytes()).hexdigest() == new_hash:
-        log.debug("sat24 %s: no change", source_id)
-        return
-
-    thumb = source.get("thumbnail", {})
-    tw, th = thumb.get("width", 640), thumb.get("height", 640)
     try:
-        img = Image.open(io.BytesIO(data)).convert("RGB")
-        img.thumbnail((tw, th), Image.LANCZOS)
-        buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=88)
-        img_bytes = buf.getvalue()
+        changed = save_image(data, source, archive_root)
     except Exception as exc:
         log.warning("sat24 %s: image processing failed: %s", source_id, exc)
         return
 
-    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    (source_dir / f"{ts}.jpg").write_bytes(img_bytes)
-    latest.write_bytes(img_bytes)
-    log.info("sat24 %s: saved frame %s", source_id, ts)
-
-    notify_new_image(source_id)
+    if changed:
+        log.info("sat24 %s: saved new frame", source_id)
+        notify_new_image(source_id)
+    else:
+        log.debug("sat24 %s: no change", source_id)

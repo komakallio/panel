@@ -19,7 +19,10 @@ def start_scheduler() -> None:
     sources = load_sources()
     archive_root = Path(settings["archive_dir"])
 
+    roi = settings.get("roi")
     for source in sources:
+        if roi:
+            source["_roi"] = roi   # available to save_image via source dict
         source_type = source.get("type", "http_image")
         interval = source.get("interval", 300)
         sid = source["id"]

@@ -1,22 +1,18 @@
-import hashlib
-import io
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from email.utils import formatdate
 from pathlib import Path
 
 import httpx
-from PIL import Image
 
 from .events import notify_new_image
+from .image_utils import save_image
 
 log = logging.getLogger(__name__)
 
 
 async def fetch_http_image(source: dict, archive_root: Path) -> None:
-    source_dir = archive_root / source["id"]
-    source_dir.mkdir(parents=True, exist_ok=True)
-    latest = source_dir / "latest.jpg"
+    latest = archive_root / source["id"] / "latest.jpg"
 
     # HTTP conditional request — skip download entirely if server says unchanged
     headers = {}
@@ -36,32 +32,17 @@ async def fetch_http_image(source: dict, archive_root: Path) -> None:
         log.warning("fetch %s failed: %s", source["id"], exc)
         return
 
-    # MD5 fallback for servers that ignore If-Modified-Since
-    new_hash = hashlib.md5(data).hexdigest()
-    if latest.exists() and hashlib.md5(latest.read_bytes()).hexdigest() == new_hash:
-        log.debug("%s: no change (hash)", source["id"])
-        return
-
-    thumb_cfg = source.get("thumbnail", {})
-    w = thumb_cfg.get("width", 640)
-    h = thumb_cfg.get("height", 480)
-
     try:
-        img = Image.open(io.BytesIO(data)).convert("RGB")
-        img.thumbnail((w, h), Image.LANCZOS)
-        buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=88)
-        img_bytes = buf.getvalue()
+        changed = save_image(data, source, archive_root)
     except Exception as exc:
         log.warning("image processing %s failed: %s", source["id"], exc)
         return
 
-    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    (source_dir / f"{ts}.jpg").write_bytes(img_bytes)
-    latest.write_bytes(img_bytes)
-    log.info("%s: saved frame %s", source["id"], ts)
-
-    notify_new_image(source["id"])
+    if changed:
+        log.info("%s: saved new frame", source["id"])
+        notify_new_image(source["id"])
+    else:
+        log.debug("%s: no change (hash)", source["id"])
 
 
 def cleanup_old_files(source: dict, archive_root: Path) -> None:
@@ -70,7 +51,7 @@ def cleanup_old_files(source: dict, archive_root: Path) -> None:
         return
 
     retention_secs = source.get("retention", 48) * 3600
-    cutoff = datetime.now(timezone.utc).timestamp() - retention_secs
+    cutoff = datetime.now().timestamp() - retention_secs
     removed = 0
     for f in source_dir.glob("2*.jpg"):
         if f.stat().st_mtime < cutoff:

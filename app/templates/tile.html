@@ -1,6 +1,9 @@
 {# Single tile fragment — returned by /tile/{source_id} for HTMX refresh.
    Also included inline by index.html on first render. #}
 <div class="tile" data-source="{{ source.id }}"
+     {% if roi_crop %}data-roi="{{ roi_crop | tojson }}"{% endif %}
+     {% if source.border_url %}data-full-border="{{ source.border_url }}"{% endif %}
+     {% if thumb_border_url %}data-thumb-border="{{ thumb_border_url }}"{% endif %}
      hx-get="/tile/{{ source.id }}"
      hx-trigger="every 300s"
      hx-target="this"
@@ -13,8 +16,8 @@
   {% else %}
     <div class="no-image">fetching…</div>
   {% endif %}
-  {% if source.border_url and has_image %}
-    <img class="tile-border" src="{{ source.border_url }}"
+  {% if thumb_border_url and has_image %}
+    <img class="tile-border" src="{{ thumb_border_url }}"
          alt="" aria-hidden="true" loading="lazy">
   {% endif %}
 
@@ -39,7 +42,7 @@
          data-s="{{ source.geo_bounds.south }}"
          data-w="{{ source.geo_bounds.west }}"
          data-e="{{ source.geo_bounds.east }}">
-      <span class="dot" style="background:var(--accent);border-color:var(--accent)"></span>
+      <span class="dot"></span>
     </div>
     {% endif %}
   </div>

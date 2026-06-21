@@ -119,6 +119,13 @@
       border: 1px solid #fff;
       flex-shrink: 0;
     }
+    /* Geolocation "you are here" marker — bold so it reads on any background */
+    .geo-loc-marker .dot {
+      width: 14px; height: 14px;
+      background: #ff2d95;
+      border: 2px solid #fff;
+      box-shadow: 0 0 0 1.5px rgba(0,0,0,.55), 0 0 9px 2px rgba(255,45,149,.75);
+    }
 
     /* ── Tile footer ── */
     .tile-footer {
@@ -185,9 +192,16 @@
     #player-title { font-size: .9rem; font-weight: 600; }
 
     .player-body {
-      position: relative;
       background: #000;
+      display: flex;
+      justify-content: center;
+    }
+    #player-clip {
+      position: relative;
+      overflow: hidden;
       line-height: 0;
+      /* default: full-width contain mode */
+      width: 100%;
     }
     #player-img {
       display: block;
@@ -238,7 +252,7 @@
     }
     .icon-btn:hover  { border-color: var(--accent); color: var(--accent); }
 
-    #pause-end-select {
+    #pause-end-select, #range-select {
       background: var(--surface);
       border: 1px solid var(--border);
       color: var(--text);
@@ -249,22 +263,29 @@
       font-size: .8rem;
       flex-shrink: 0;
     }
-    #pause-end-select:hover { border-color: var(--accent); }
-    #pause-end-select option { background: var(--surface); }
+    #pause-end-select:hover, #range-select:hover { border-color: var(--accent); }
+    #pause-end-select option, #range-select option { background: var(--surface); }
 
     /* ── Border overlay ── */
-    .tile-border {
+    /* Selector must out-specify `.tile img` so the border keeps a transparent
+       background — otherwise the `.tile img { background:#000 }` rule blacks
+       out the satellite under this absolutely-positioned overlay. */
+    .tile img.tile-border {
       position: absolute;
       top: 0; left: 0;
       width: 100%;
       aspect-ratio: 4/3;
       object-fit: contain;
+      background: none;
       pointer-events: none;
     }
     .borders-off .tile-border { display: none; }
 
     #border-btn { font-size: .75rem; }
     #border-btn.active { color: var(--accent); border-color: var(--accent); }
+
+    #crop-btn, #player-border-btn { font-size: .75rem; }
+    #crop-btn.active, #player-border-btn.active { color: var(--accent); border-color: var(--accent); }
 
     #player-border {
       position: absolute;
@@ -299,7 +320,7 @@
 
 <div class="grid">
   {% for tile in tiles %}
-    {% with source=tile.source, has_image=tile.has_image, overlays=tile.overlays, now=tile.now %}
+    {% with source=tile.source, has_image=tile.has_image, overlays=tile.overlays, now=tile.now, roi_crop=tile.roi_crop, thumb_border_url=tile.thumb_border_url %}
       {% include "tile.html" %}
     {% endwith %}
   {% endfor %}
@@ -313,18 +334,32 @@
   </div>
   <div class="player-body">
     <div class="spinner" id="player-spinner">loading frames…</div>
-    <img id="player-img" src="" alt="" style="display:none">
-    <img id="player-border" src="" alt="" aria-hidden="true" style="display:none">
-    <div id="player-overlays" class="overlays"></div>
+    <div id="player-clip">
+      <img id="player-img" src="" alt="" style="display:none">
+      <img id="player-border" src="" alt="" aria-hidden="true" style="display:none">
+      <div id="player-overlays" class="overlays">
+        <div id="player-geo-marker" class="overlay marker geo-loc-marker" style="display:none"><span class="dot"></span></div>
+      </div>
+    </div>
   </div>
   <div class="player-controls">
     <button class="icon-btn" id="play-pause-btn" onclick="togglePlay()" title="Space">▶</button>
+    <button class="icon-btn active" id="crop-btn" onclick="toggleCrop()" style="display:none" title="Toggle crop / full frame">Crop</button>
+    <button class="icon-btn active" id="player-border-btn" onclick="toggleBorders()" style="display:none" title="Toggle border overlay">Borders</button>
+    <select id="range-select" onchange="setRange(this.value)" title="Time range to animate">
+      <option value="1">1 h</option>
+      <option value="3" selected>3 h</option>
+      <option value="6">6 h</option>
+      <option value="12">12 h</option>
+      <option value="24">24 h</option>
+      <option value="0">all</option>
+    </select>
     <select id="pause-end-select" onchange="setPauseEnd(this.value)" title="Pause at latest frame">
       <option value="0">loop</option>
+      <option value="100">hold 0.1s</option>
+      <option value="200">hold 0.2s</option>
+      <option value="500">hold 0.5s</option>
       <option value="1000">hold 1s</option>
-      <option value="2000">hold 2s</option>
-      <option value="3000">hold 3s</option>
-      <option value="5000">hold 5s</option>
     </select>
     <input type="range" id="scrubbar" min="0" value="0"
            oninput="scrub(this.value)" onchange="scrub(this.value)">
@@ -345,10 +380,17 @@
   tick();
   setInterval(tick, 1000);
 
-  // ── Border toggle ──
+  // ── Border toggle (shared by header + player buttons) ──
   function toggleBorders() {
-    const on = document.body.classList.toggle('borders-off');
-    document.getElementById('border-btn').classList.toggle('active', !on);
+    const off = document.body.classList.toggle('borders-off');
+    document.getElementById('border-btn').classList.toggle('active', !off);
+    document.getElementById('player-border-btn').classList.toggle('active', !off);
+    // Re-apply inside the player if it's open (inline display overrides CSS)
+    if (document.getElementById('player-modal').open && pCurrentSourceId) {
+      const src = pCropMode ? _thumbBorderSrc(pCurrentSourceId)
+                            : _fullBorderSrc(pCurrentSourceId);
+      _showPlayerBorder(src);
+    }
   }
 
   // ── Player state ──
@@ -359,24 +401,121 @@
   let pFps    = 8;
   let pPauseEndMs = 0;
   let pAtEndHold  = false;
+  let pRoi    = null;
+  let pCropMode = true;
+  let pCurrentSourceId = null;
+  let pRangeHours = 3;   // time window to animate (0 = all archived)
+
+  // Border is shown unless the global "Borders" toggle is off.
+  function _showPlayerBorder(src) {
+    const b = document.getElementById('player-border');
+    const off = document.body.classList.contains('borders-off');
+    b.src = src || '';
+    b.style.display = (src && !off) ? 'block' : 'none';
+  }
+
+  function _applyPlayerCrop(roi, thumbBorderSrc) {
+    const clip = document.getElementById('player-clip');
+    const img  = document.getElementById('player-img');
+    const modal = document.getElementById('player-modal');
+    const maxW = modal.offsetWidth - 28;
+    const scale = Math.min(1, maxW / roi.w);
+    clip.style.width    = (roi.w * scale) + 'px';
+    clip.style.height   = (roi.h * scale) + 'px';
+    img.style.position  = 'absolute';
+    img.style.width     = (roi.fullW * scale) + 'px';
+    img.style.height    = (roi.fullH * scale) + 'px';
+    img.style.left      = -(roi.x * scale) + 'px';
+    img.style.top       = -(roi.y * scale) + 'px';
+    img.style.maxHeight = 'none';
+    img.style.objectFit = 'fill';
+    // Border PNG covers the same ROI extent → fills the clip exactly.
+    _showPlayerBorder(thumbBorderSrc);
+  }
+
+  function _applyPlayerFull(fullBorderSrc) {
+    const clip = document.getElementById('player-clip');
+    const img  = document.getElementById('player-img');
+    clip.style.width    = '100%';
+    clip.style.height   = '';
+    img.style.position  = '';
+    img.style.width     = '100%';
+    img.style.height    = 'auto';
+    img.style.left      = '';
+    img.style.top       = '';
+    img.style.maxHeight = '70vh';
+    img.style.objectFit = 'contain';
+    _showPlayerBorder(fullBorderSrc);
+  }
+
+  function _fullBorderSrc(sourceId) {
+    const tileEl = document.querySelector(`[data-source="${sourceId}"]`);
+    return tileEl ? (tileEl.dataset.fullBorder || null) : null;
+  }
+
+  function _thumbBorderSrc(sourceId) {
+    const tileEl = document.querySelector(`[data-source="${sourceId}"]`);
+    return tileEl ? (tileEl.dataset.thumbBorder || null) : null;
+  }
+
+  function toggleCrop() {
+    pCropMode = !pCropMode;
+    document.getElementById('crop-btn').classList.toggle('active', pCropMode);
+    if (pCropMode && pRoi) {
+      _applyPlayerCrop(pRoi, _thumbBorderSrc(pCurrentSourceId));
+    } else {
+      _applyPlayerFull(_fullBorderSrc(pCurrentSourceId));
+    }
+    placePlayerMarker();
+  }
 
   async function openPlayer(sourceId, name) {
-    const modal    = document.getElementById('player-modal');
-    const spinner  = document.getElementById('player-spinner');
-    const img      = document.getElementById('player-img');
+    const modal   = document.getElementById('player-modal');
+    const spinner = document.getElementById('player-spinner');
+    const img     = document.getElementById('player-img');
+    const cropBtn = document.getElementById('crop-btn');
 
     document.getElementById('player-title').textContent = name;
-    const borderImg = document.getElementById('player-border');
-    const tileBorder = document.querySelector(`[data-source="${sourceId}"] .tile-border`);
-    borderImg.src = tileBorder ? tileBorder.src : '';
-    borderImg.style.display = tileBorder ? 'block' : 'none';
+    pCurrentSourceId = sourceId;
+
+    const tileEl = document.querySelector(`[data-source="${sourceId}"]`);
+    pRoi = tileEl && tileEl.dataset.roi ? JSON.parse(tileEl.dataset.roi) : null;
+    pCropMode = !!pRoi;
 
     spinner.classList.add('active');
     img.style.display = 'none';
     modal.showModal();
 
+    if (pRoi) {
+      _applyPlayerCrop(pRoi, _thumbBorderSrc(sourceId));
+      cropBtn.style.display = '';
+      cropBtn.classList.toggle('active', true);
+    } else {
+      _applyPlayerFull(_fullBorderSrc(sourceId));
+      cropBtn.style.display = 'none';
+    }
+
+    // Border toggle button — only when this source has a border overlay
+    const borderBtn = document.getElementById('player-border-btn');
+    const hasBorder = !!(_thumbBorderSrc(sourceId) || _fullBorderSrc(sourceId));
+    borderBtn.style.display = hasBorder ? '' : 'none';
+    borderBtn.classList.toggle('active', !document.body.classList.contains('borders-off'));
+
+    await loadFrames();
+  }
+
+  // Fetch + preload frames for the current source/range, then start playback.
+  async function loadFrames() {
+    if (!pCurrentSourceId) return;
+    const spinner = document.getElementById('player-spinner');
+    const img     = document.getElementById('player-img');
+    stopPlay();
+    spinner.textContent = 'loading frames…';
+    spinner.classList.add('active');
+    img.style.display = 'none';
+
     try {
-      const resp = await fetch(`/api/frames/${sourceId}?n=60`);
+      const resp = await fetch(`/api/frames/${pCurrentSourceId}?hours=${pRangeHours}`);
       const data = await resp.json();
       pFrames = data.frames;
     } catch(e) {
@@ -386,7 +525,7 @@
 
     spinner.classList.remove('active');
     if (pFrames.length === 0) {
-      spinner.textContent = 'No frames archived yet.';
+      spinner.textContent = 'No frames in this range.';
       spinner.classList.add('active');
       return;
     }
@@ -401,13 +540,23 @@
     pIndex = 0;
     updateFrame();
     startPlay();
+    placePlayerMarker();
+  }
+
+  function setRange(val) {
+    pRangeHours = parseFloat(val);
+    loadFrames();
   }
 
   function closePlayer() {
     stopPlay();
     document.getElementById('player-modal').close();
-    const b = document.getElementById('player-border');
-    b.src = ''; b.style.display = 'none';
+    _applyPlayerFull(null);
+    const cropBtn = document.getElementById('crop-btn');
+    cropBtn.style.display = 'none';
+    cropBtn.classList.remove('active');
+    document.getElementById('player-geo-marker').style.display = 'none';
+    pRoi = null; pCurrentSourceId = null; pCropMode = true;
     pFrames = [];
   }
 
@@ -484,37 +633,107 @@
     }
   }
 
+  // Web Mercator y (matches image_utils.merc_y on the server)
+  function _mercY(latDeg) {
+    return Math.log(Math.tan(Math.PI / 4 + (latDeg * Math.PI / 180) / 2));
+  }
+
   function placeGeoMarkers(root) {
     if (_geoLat === null) return;
     (root || document).querySelectorAll('.geo-loc-marker').forEach(m => {
       const n = +m.dataset.n, s = +m.dataset.s;
       const w = +m.dataset.w, e = +m.dataset.e;
       if (_geoLat < s || _geoLat > n || _geoLon < w || _geoLon > e) return;
-      const imgEl = m.closest('.tile').querySelector('img');
+      const tile = m.closest('.tile');
+      if (!tile) return;   // skip the player marker (handled by placePlayerMarker)
+      const imgEl = tile.querySelector('img');
       if (!imgEl || !imgEl.naturalWidth) {
-        imgEl?.addEventListener('load', () => placeGeoMarkers(m.closest('.tile')), { once: true });
+        imgEl?.addEventListener('load', () => placeGeoMarkers(tile), { once: true });
         return;
+      }
+      // Fraction within the FULL image — longitude linear, latitude in Mercator y
+      const mN = _mercY(n), mS = _mercY(s);
+      let fx = (_geoLon - w) / (e - w);
+      let fy = (mN - _mercY(_geoLat)) / (mN - mS);
+      // The grid thumbnail may be an ROI crop of the full image — remap into it
+      const roi = tile.dataset.roi ? JSON.parse(tile.dataset.roi) : null;
+      if (roi) {
+        fx = (fx * roi.fullW - roi.x) / roi.w;
+        fy = (fy * roi.fullH - roi.y) / roi.h;
+        if (fx < 0 || fx > 1 || fy < 0 || fy > 1) { m.style.display = 'none'; return; }
       }
       const ir  = _renderedImageRect(imgEl);
       const ovr = m.parentElement.getBoundingClientRect();
-      const xPx = (ir.l - ovr.left) + (_geoLon - w) / (e - w) * ir.w;
-      const yPx = (ir.t - ovr.top)  + (n - _geoLat) / (n - s) * ir.h;
-      m.style.left    = xPx + 'px';
-      m.style.top     = yPx + 'px';
+      m.style.left    = (ir.l - ovr.left) + fx * ir.w + 'px';
+      m.style.top     = (ir.t - ovr.top)  + fy * ir.h + 'px';
       m.style.display = '';
     });
   }
 
+  // Marker inside the animation player — handles both crop and full-frame modes.
+  function placePlayerMarker() {
+    const marker = document.getElementById('player-geo-marker');
+    if (_geoLat === null || !pCurrentSourceId) { marker.style.display = 'none'; return; }
+    const tileEl = document.querySelector(`[data-source="${pCurrentSourceId}"]`);
+    const gm = tileEl ? tileEl.querySelector('.geo-loc-marker') : null;
+    if (!gm) { marker.style.display = 'none'; return; }   // source has no geo_bounds
+    const n = +gm.dataset.n, s = +gm.dataset.s, w = +gm.dataset.w, e = +gm.dataset.e;
+    if (_geoLat < s || _geoLat > n || _geoLon < w || _geoLon > e) { marker.style.display = 'none'; return; }
+
+    const img = document.getElementById('player-img');
+    if (!img.naturalWidth) { img.addEventListener('load', placePlayerMarker, { once: true }); return; }
+
+    const mN = _mercY(n), mS = _mercY(s);
+    const fxFull = (_geoLon - w) / (e - w);
+    const fyFull = (mN - _mercY(_geoLat)) / (mN - mS);
+
+    let xPx, yPx;
+    if (pCropMode && pRoi) {
+      // img is the full frame, scaled and offset; clip shows the ROI crop
+      const clip = document.getElementById('player-clip').getBoundingClientRect();
+      const scale = clip.width / pRoi.w;
+      xPx = (fxFull * pRoi.fullW - pRoi.x) * scale;
+      yPx = (fyFull * pRoi.fullH - pRoi.y) * scale;
+      if (xPx < 0 || xPx > clip.width || yPx < 0 || yPx > clip.height) {
+        marker.style.display = 'none'; return;
+      }
+    } else {
+      // full-frame mode: img is object-fit:contain within its box
+      const ir  = _renderedImageRect(img);
+      const ovr = document.getElementById('player-overlays').getBoundingClientRect();
+      xPx = (ir.l - ovr.left) + fxFull * ir.w;
+      yPx = (ir.t - ovr.top)  + fyFull * ir.h;
+    }
+    marker.style.left = xPx + 'px';
+    marker.style.top  = yPx + 'px';
+    marker.style.display = '';
+  }
+
+  // Fallback to Komakallio (the ROI centre) when the browser has no geolocation
+  // or denies/times out — so the marker is still visible for reference.
+  const _FALLBACK_LAT = 60.17, _FALLBACK_LON = 24.39;   // Komakallio
+  function _useFallbackLocation() {
+    if (_geoLat !== null) return;   // a real fix already arrived
+    _geoLat = _FALLBACK_LAT; _geoLon = _FALLBACK_LON;
+    placeGeoMarkers();
+    placePlayerMarker();
+  }
+
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(
-      pos => { _geoLat = pos.coords.latitude; _geoLon = pos.coords.longitude; placeGeoMarkers(); },
-      null,
+      pos => { _geoLat = pos.coords.latitude; _geoLon = pos.coords.longitude; placeGeoMarkers(); placePlayerMarker(); },
+      _useFallbackLocation,    // permission denied / unavailable / timeout
       { maximumAge: 300_000, timeout: 10_000 }
     );
+  } else {
+    _useFallbackLocation();    // browser has no geolocation API at all
   }
 
   // Re-place markers after HTMX tile swaps
   document.addEventListener('htmx:afterSwap', () => placeGeoMarkers());
+
+  // Re-place markers on resize (layout-dependent positions)
+  window.addEventListener('resize', () => { placeGeoMarkers(); placePlayerMarker(); });
 
   // SSE — update tiles instantly when fetcher saves a new image
   // Wrapped in DOMContentLoaded so htmx (defer) is guaranteed loaded first
