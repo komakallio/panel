@@ -36,6 +36,7 @@
     }
     header h1 { font-size: 1rem; font-weight: 600; letter-spacing: .04em; }
     #clock { font-size: .8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .header-controls { display: flex; align-items: center; gap: 10px; }
 
     /* ── Grid ── */
     .grid {
@@ -281,7 +282,7 @@
     }
     .icon-btn:hover  { border-color: var(--accent); color: var(--accent); }
 
-    #pause-end-select, #range-select {
+    #pause-end-select, #range-select, #loc-select {
       background: var(--surface);
       border: 1px solid var(--border);
       color: var(--text);
@@ -292,8 +293,8 @@
       font-size: .8rem;
       flex-shrink: 0;
     }
-    #pause-end-select:hover, #range-select:hover { border-color: var(--accent); }
-    #pause-end-select option, #range-select option { background: var(--surface); }
+    #pause-end-select:hover, #range-select:hover, #loc-select:hover { border-color: var(--accent); }
+    #pause-end-select option, #range-select option, #loc-select option { background: var(--surface); }
 
     /* ── Border overlay ── */
     /* Selector must out-specify `.tile img` so the border keeps a transparent
@@ -343,8 +344,16 @@
 
 <header>
   <h1>KK Dashboard</h1>
-  <button class="icon-btn active" id="border-btn" onclick="toggleBorders()" title="Toggle border overlay">Borders</button>
-  <span id="clock"></span>
+  <div class="header-controls">
+    <select id="loc-select" onchange="setMarkerSource(this.value)" title="Location marker">
+      <option value="geo" selected>Geolocation</option>
+      <option value="komakallio">Komakallio</option>
+      <option value="efry">EFRY</option>
+      <option value="off">Marker off</option>
+    </select>
+    <button class="icon-btn active" id="border-btn" onclick="toggleBorders()" title="Toggle border overlay">Borders</button>
+    <span id="clock"></span>
+  </div>
 </header>
 
 <div class="grid">
@@ -790,25 +799,35 @@
     marker.style.display = '';
   }
 
-  // Fallback to Komakallio (the ROI centre) when the browser has no geolocation
-  // or denies/times out — so the marker is still visible for reference.
-  const _FALLBACK_LAT = 60.17, _FALLBACK_LON = 24.39;   // Komakallio
-  function _useFallbackLocation() {
-    if (_geoLat !== null) return;   // a real fix already arrived
-    _geoLat = _FALLBACK_LAT; _geoLon = _FALLBACK_LON;
-    placeGeoMarkers();
-    placePlayerMarker();
-  }
+  // ── Location marker source (header dropdown): geolocation | komakallio | efry | off ──
+  const _LOC = { komakallio: [60.17, 24.39], efry: [60.7447, 24.1078] };   // [lat, lon]
 
-  if (navigator.geolocation) {
+  function _applyLoc(lat, lon) {
+    _geoLat = lat; _geoLon = lon;
+    placeGeoMarkers(); placePlayerMarker();
+  }
+  function _hideMarkers() {
+    _geoLat = _geoLon = null;
+    document.querySelectorAll('.geo-loc-marker').forEach(m => m.style.display = 'none');
+    document.getElementById('player-geo-marker').style.display = 'none';
+  }
+  // Geolocation denied/unavailable → fall back to Komakallio and reflect it in the dropdown.
+  function _fallbackKomakallio() {
+    document.getElementById('loc-select').value = 'komakallio';
+    _applyLoc(..._LOC.komakallio);
+  }
+  function setMarkerSource(mode) {
+    if (mode === 'off') { _hideMarkers(); return; }
+    if (mode in _LOC)   { _applyLoc(..._LOC[mode]); return; }
+    // 'geo': browser geolocation, falling back to Komakallio if denied/unavailable
+    if (!navigator.geolocation) { _fallbackKomakallio(); return; }
     navigator.geolocation.getCurrentPosition(
-      pos => { _geoLat = pos.coords.latitude; _geoLon = pos.coords.longitude; placeGeoMarkers(); placePlayerMarker(); },
-      _useFallbackLocation,    // permission denied / unavailable / timeout
+      pos => _applyLoc(pos.coords.latitude, pos.coords.longitude),
+      ()  => _fallbackKomakallio(),
       { maximumAge: 300_000, timeout: 10_000 }
     );
-  } else {
-    _useFallbackLocation();    // browser has no geolocation API at all
   }
+  setMarkerSource(document.getElementById('loc-select').value);
 
   // Re-place markers and refresh age badges after HTMX tile swaps
   document.addEventListener('htmx:afterSwap', () => { placeGeoMarkers(); updateAges(); });
