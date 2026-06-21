@@ -142,7 +142,7 @@ sources:
   # ── Helsinki Testbed (testbed.fmi.fi) ───────────────────────────────────────
   # The viewer page embeds the current image as a time-encoded img.php URL that
   # changes as new frames appear, so custom_sources/testbed.py scrapes the page
-  # each fetch. geo_bounds / ROI to be added once the radar extent is worked out.
+  # each fetch. Georeferenced in EPSG:3067 (see proj_bounds below).
   - id: testbed_radar
     name: "Helsinki Testbed Radar"
     type: custom
@@ -154,6 +154,15 @@ sources:
       width: 640
       height: 640
     link: "https://testbed.fmi.fi/?imgtype=radar&t=5&n=1"
+    # EPSG:3067 (ETRS-TM35FIN) extent of the 600x508 raster, from click
+    # calibration; used browser-side (TM35FIN forward in JS) to place the
+    # location marker. Shown full-frame, so no ROI crop.
+    proj_bounds:
+      epsg: 3067
+      min_e: 262834
+      max_e: 487686
+      min_n: 6580827
+      max_n: 6765012
     overlays:
       - type: label
         text: "Testbed Radar"

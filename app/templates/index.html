@@ -693,30 +693,58 @@
     return Math.log(Math.tan(Math.PI / 4 + (latDeg * Math.PI / 180) / 2));
   }
 
+  // ETRS-TM35FIN (EPSG:3067) forward: lat/lon -> [easting, northing]. Matches pyproj.
+  function _tm35fin(lat, lon) {
+    const a=6378137.0, f=1/298.257222101, e2=f*(2-f), ep2=e2/(1-e2);
+    const k0=0.9996, lon0=27*Math.PI/180, FE=500000;
+    const phi=lat*Math.PI/180, lam=lon*Math.PI/180;
+    const sp=Math.sin(phi), cp=Math.cos(phi), tp=Math.tan(phi);
+    const N=a/Math.sqrt(1-e2*sp*sp), T=tp*tp, C=ep2*cp*cp, A=(lam-lon0)*cp;
+    const M=a*((1-e2/4-3*e2**2/64-5*e2**3/256)*phi
+              -(3*e2/8+3*e2**2/32+45*e2**3/1024)*Math.sin(2*phi)
+              +(15*e2**2/256+45*e2**3/1024)*Math.sin(4*phi)
+              -(35*e2**3/3072)*Math.sin(6*phi));
+    const E=FE+k0*N*(A+(1-T+C)*A**3/6+(5-18*T+T*T+72*C-58*ep2)*A**5/120);
+    const Nn=k0*(M+N*tp*(A*A/2+(5-T+9*C+4*C*C)*A**4/24+(61-58*T+T*T+600*C-330*ep2)*A**6/720));
+    return [E, Nn];
+  }
+
+  // Fraction [fx,fy] of the user's location within the FULL source image, or null.
+  // Mercator sources carry data-n/s/e/w; EPSG:3067 sources carry data-proj + e/n bounds.
+  function _markerFrac(m) {
+    if (m.dataset.proj === '3067') {
+      const [E, N] = _tm35fin(_geoLat, _geoLon);
+      const emin=+m.dataset.emin, emax=+m.dataset.emax, nmin=+m.dataset.nmin, nmax=+m.dataset.nmax;
+      return [(E - emin) / (emax - emin), (nmax - N) / (nmax - nmin)];
+    }
+    if (m.dataset.n !== undefined) {
+      const n=+m.dataset.n, s=+m.dataset.s, w=+m.dataset.w, e=+m.dataset.e;
+      const mN=_mercY(n), mS=_mercY(s);
+      return [(_geoLon - w) / (e - w), (mN - _mercY(_geoLat)) / (mN - mS)];
+    }
+    return null;
+  }
+
   function placeGeoMarkers(root) {
     if (_geoLat === null) return;
     (root || document).querySelectorAll('.geo-loc-marker').forEach(m => {
-      const n = +m.dataset.n, s = +m.dataset.s;
-      const w = +m.dataset.w, e = +m.dataset.e;
-      if (_geoLat < s || _geoLat > n || _geoLon < w || _geoLon > e) return;
       const tile = m.closest('.tile');
       if (!tile) return;   // skip the player marker (handled by placePlayerMarker)
+      const frac = _markerFrac(m);
+      if (!frac) return;
+      let [fx, fy] = frac;
       const imgEl = tile.querySelector('img');
       if (!imgEl || !imgEl.naturalWidth) {
         imgEl?.addEventListener('load', () => placeGeoMarkers(tile), { once: true });
         return;
       }
-      // Fraction within the FULL image — longitude linear, latitude in Mercator y
-      const mN = _mercY(n), mS = _mercY(s);
-      let fx = (_geoLon - w) / (e - w);
-      let fy = (mN - _mercY(_geoLat)) / (mN - mS);
       // The grid thumbnail may be an ROI crop of the full image — remap into it
       const roi = tile.dataset.roi ? JSON.parse(tile.dataset.roi) : null;
       if (roi) {
         fx = (fx * roi.fullW - roi.x) / roi.w;
         fy = (fy * roi.fullH - roi.y) / roi.h;
-        if (fx < 0 || fx > 1 || fy < 0 || fy > 1) { m.style.display = 'none'; return; }
       }
+      if (fx < 0 || fx > 1 || fy < 0 || fy > 1) { m.style.display = 'none'; return; }
       const ir  = _renderedImageRect(imgEl);
       const ovr = m.parentElement.getBoundingClientRect();
       m.style.left    = (ir.l - ovr.left) + fx * ir.w + 'px';
@@ -731,16 +759,13 @@
     if (_geoLat === null || !pCurrentSourceId) { marker.style.display = 'none'; return; }
     const tileEl = document.querySelector(`[data-source="${pCurrentSourceId}"]`);
     const gm = tileEl ? tileEl.querySelector('.geo-loc-marker') : null;
-    if (!gm) { marker.style.display = 'none'; return; }   // source has no geo_bounds
-    const n = +gm.dataset.n, s = +gm.dataset.s, w = +gm.dataset.w, e = +gm.dataset.e;
-    if (_geoLat < s || _geoLat > n || _geoLon < w || _geoLon > e) { marker.style.display = 'none'; return; }
+    if (!gm) { marker.style.display = 'none'; return; }   // source has no geo info
+    const frac = _markerFrac(gm);
+    if (!frac) { marker.style.display = 'none'; return; }
+    let [fxFull, fyFull] = frac;
 
     const img = document.getElementById('player-img');
     if (!img.naturalWidth) { img.addEventListener('load', placePlayerMarker, { once: true }); return; }
-
-    const mN = _mercY(n), mS = _mercY(s);
-    const fxFull = (_geoLon - w) / (e - w);
-    const fyFull = (mN - _mercY(_geoLat)) / (mN - mS);
 
     let xPx, yPx;
     if (pCropMode && pRoi) {
@@ -754,6 +779,7 @@
       }
     } else {
       // full-frame mode: img is object-fit:contain within its box
+      if (fxFull < 0 || fxFull > 1 || fyFull < 0 || fyFull > 1) { marker.style.display = 'none'; return; }
       const ir  = _renderedImageRect(img);
       const ovr = document.getElementById('player-overlays').getBoundingClientRect();
       xPx = (ir.l - ovr.left) + fxFull * ir.w;

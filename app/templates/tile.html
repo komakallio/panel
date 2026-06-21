@@ -36,13 +36,17 @@
         </div>
       {% endif %}
     {% endfor %}
-    {% if source.geo_bounds %}
-    <div class="overlay marker geo-loc-marker"
-         style="display:none"
-         data-n="{{ source.geo_bounds.north }}"
-         data-s="{{ source.geo_bounds.south }}"
-         data-w="{{ source.geo_bounds.west }}"
-         data-e="{{ source.geo_bounds.east }}">
+    {% if source.geo_bounds or source.proj_bounds %}
+    <div class="overlay marker geo-loc-marker" style="display:none"
+         {% if source.geo_bounds %}
+         data-n="{{ source.geo_bounds.north }}" data-s="{{ source.geo_bounds.south }}"
+         data-w="{{ source.geo_bounds.west }}" data-e="{{ source.geo_bounds.east }}"
+         {% endif %}
+         {% if source.proj_bounds %}
+         data-proj="{{ source.proj_bounds.epsg }}"
+         data-emin="{{ source.proj_bounds.min_e }}" data-emax="{{ source.proj_bounds.max_e }}"
+         data-nmin="{{ source.proj_bounds.min_n }}" data-nmax="{{ source.proj_bounds.max_n }}"
+         {% endif %}>
       <span class="dot"></span>
     </div>
     {% endif %}
