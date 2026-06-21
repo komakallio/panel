@@ -136,6 +136,27 @@ sources:
       - type: age
         stale_after: 1200
 
+  # ── Helsinki Testbed (testbed.fmi.fi) ───────────────────────────────────────
+  # The viewer page embeds the current image as a time-encoded img.php URL that
+  # changes as new frames appear, so custom_sources/testbed.py scrapes the page
+  # each fetch. geo_bounds / ROI to be added once the radar extent is worked out.
+  - id: testbed_radar
+    name: "Helsinki Testbed Radar"
+    type: custom
+    module: testbed
+    page_url: "https://testbed.fmi.fi/?imgtype=radar&t=5&n=1"
+    interval: 300
+    retention: 72
+    thumbnail:
+      width: 640
+      height: 640
+    link: "https://testbed.fmi.fi/?imgtype=radar&t=5&n=1"
+    overlays:
+      - type: label
+        text: "Testbed Radar"
+      - type: age
+        stale_after: 1800
+
   # Example with geo markers — fill in a real satellite image URL when known
   # - id: sat_ir
   #   name: "Satellite IR"
