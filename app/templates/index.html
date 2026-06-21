@@ -622,6 +622,7 @@
   function togglePlay() { pPlaying ? stopPlay() : startPlay(); }
 
   function scrub(val) {
+    stopPlay();            // moving the slider pauses; resumes only on play
     pIndex = parseInt(val);
     updateFrame();
   }
