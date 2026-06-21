@@ -385,10 +385,9 @@
     </select>
     <select id="pause-end-select" onchange="setPauseEnd(this.value)" title="Pause at latest frame">
       <option value="0">loop</option>
-      <option value="100">hold 0.1s</option>
-      <option value="200">hold 0.2s</option>
       <option value="500">hold 0.5s</option>
       <option value="1000">hold 1s</option>
+      <option value="2000">hold 2s</option>
     </select>
     <input type="range" id="scrubbar" min="0" value="0"
            oninput="scrub(this.value)" onchange="scrub(this.value)">
