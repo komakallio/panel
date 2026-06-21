@@ -11,11 +11,14 @@ def render_overlays(source: dict, archive_root: Path) -> list[dict]:
         ov_type = ov.get("type")
 
         if ov_type == "age":
-            text, stale = _image_age(source_dir, ov.get("stale_after", 3600))
+            stale_after = ov.get("stale_after", 3600)
+            text, stale, mtime = _image_age(source_dir, stale_after)
             result.append({
                 "type": "age",
                 "text": text,
                 "stale": stale,
+                "mtime": mtime,            # epoch seconds, for live client-side ticking
+                "stale_after": stale_after,
                 "position": ov.get("position", "top-right"),
             })
 
@@ -43,22 +46,30 @@ def render_overlays(source: dict, archive_root: Path) -> list[dict]:
     return result
 
 
-def _image_age(source_dir: Path, stale_after: int) -> tuple[str, bool]:
+def _image_age(source_dir: Path, stale_after: int) -> tuple[str, bool, int | None]:
     latest = source_dir / "latest.jpg"
     if not latest.exists():
-        return "no image", True
+        return "no image", True, None
 
-    age_s = datetime.now(timezone.utc).timestamp() - latest.stat().st_mtime
+    mtime = latest.stat().st_mtime
+    age_s = datetime.now(timezone.utc).timestamp() - mtime
+    return _format_age(age_s), age_s > stale_after, round(mtime)
+
+
+def _format_age(age_s: float) -> str:
+    """Initial age text; the browser then updates it live each second.
+    <1 min: seconds, 1-5 min: M:SS, then rounded minutes / hours / days."""
+    if age_s < 0:
+        age_s = 0
     if age_s < 60:
-        text = "just now"
-    elif age_s < 3600:
-        text = f"{int(age_s / 60)} min ago"
-    elif age_s < 86400:
-        text = f"{int(age_s / 3600)} h ago"
-    else:
-        text = f"{int(age_s / 86400)} d ago"
-
-    return text, age_s > stale_after
+        return f"{int(age_s)}s ago"
+    if age_s < 300:
+        return f"{int(age_s // 60)}:{int(age_s % 60):02d} ago"
+    if age_s < 3600:
+        return f"{int(age_s / 60)} min ago"
+    if age_s < 86400:
+        return f"{int(age_s / 3600)} h ago"
+    return f"{int(age_s / 86400)} d ago"
 
 
 def _latlon_to_pct(lat, lon, north, south, west, east) -> tuple[float, float]:

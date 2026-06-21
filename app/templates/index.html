@@ -380,6 +380,30 @@
   tick();
   setInterval(tick, 1000);
 
+  // ── Live image-age badges ──
+  // Server renders an initial value; the browser updates it every second from
+  // data-mtime. <1 min: seconds, 1-5 min: M:SS, then rounded to whole minutes.
+  function _fmtAge(sec) {
+    if (sec < 0) sec = 0;
+    if (sec < 60)    return Math.floor(sec) + 's ago';
+    if (sec < 300)   { const m = Math.floor(sec / 60), s = Math.floor(sec % 60);
+                       return m + ':' + String(s).padStart(2, '0') + ' ago'; }
+    if (sec < 3600)  return Math.floor(sec / 60) + ' min ago';
+    if (sec < 86400) return Math.floor(sec / 3600) + ' h ago';
+    return Math.floor(sec / 86400) + ' d ago';
+  }
+  function updateAges() {
+    const now = Date.now() / 1000;
+    document.querySelectorAll('.overlay.age[data-mtime]').forEach(el => {
+      const sec = now - parseFloat(el.dataset.mtime);
+      el.textContent = _fmtAge(sec);
+      const sa = parseFloat(el.dataset.staleAfter);
+      if (!isNaN(sa)) el.classList.toggle('stale', sec > sa);
+    });
+  }
+  setInterval(updateAges, 1000);
+  updateAges();
+
   // ── Border toggle (shared by header + player buttons) ──
   function toggleBorders() {
     const off = document.body.classList.toggle('borders-off');
@@ -729,8 +753,8 @@
     _useFallbackLocation();    // browser has no geolocation API at all
   }
 
-  // Re-place markers after HTMX tile swaps
-  document.addEventListener('htmx:afterSwap', () => placeGeoMarkers());
+  // Re-place markers and refresh age badges after HTMX tile swaps
+  document.addEventListener('htmx:afterSwap', () => { placeGeoMarkers(); updateAges(); });
 
   // Re-place markers on resize (layout-dependent positions)
   window.addEventListener('resize', () => { placeGeoMarkers(); placePlayerMarker(); });

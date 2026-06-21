@@ -24,7 +24,8 @@
   <div class="overlays" onclick="event.stopPropagation()">
     {% for ov in overlays %}
       {% if ov.type == "age" %}
-        <span class="overlay age {{ ov.position }}{% if ov.stale %} stale{% endif %}">
+        <span class="overlay age {{ ov.position }}{% if ov.stale %} stale{% endif %}"
+              {% if ov.mtime %}data-mtime="{{ ov.mtime }}" data-stale-after="{{ ov.stale_after }}"{% endif %}>
           {{ ov.text }}
         </span>
       {% elif ov.type == "label" %}
