@@ -226,7 +226,36 @@
     #scrubbar {
       flex: 1;
       min-width: 120px;
-      accent-color: var(--accent);
+      -webkit-appearance: none;
+      appearance: none;
+      height: 22px;              /* as tall as the thumb so the track centers in it */
+      background: transparent;
+      cursor: pointer;
+    }
+    /* Larger thumb for easier grabbing on touch screens */
+    #scrubbar::-webkit-slider-runnable-track {
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255,255,255,.20);
+    }
+    #scrubbar::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      box-sizing: border-box;
+      width: 22px; height: 22px;
+      margin-top: -8px;          /* center 22px thumb on the 6px track */
+      border-radius: 50%;
+      background: var(--accent);
+      border: 2px solid #fff;
+    }
+    #scrubbar::-moz-range-track {
+      height: 6px; border-radius: 3px; background: rgba(255,255,255,.20);
+    }
+    #scrubbar::-moz-range-thumb {
+      box-sizing: border-box;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: 2px solid #fff;
     }
     #frame-ts {
       font-size: .75rem;
