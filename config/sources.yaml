@@ -65,7 +65,7 @@ sources:
     name: "Tampere North"
     type: http_image
     url: "https://www.ursa.fi/yhd/tampereenursa/ys-images/north-snapshot.jpg"
-    interval: 300
+    interval: 15      # cameras update every 60s; oversample so no frame is missed (HEAD probe skips unchanged)
     retention: 72
     thumbnail:
       width: 640
@@ -81,7 +81,7 @@ sources:
     name: "Tampere East"
     type: http_image
     url: "https://www.ursa.fi/yhd/tampereenursa/ys-images/east-snapshot.jpg"
-    interval: 300
+    interval: 15
     retention: 72
     thumbnail:
       width: 640
@@ -97,7 +97,7 @@ sources:
     name: "Tampere South"
     type: http_image
     url: "https://www.ursa.fi/yhd/tampereenursa/ys-images/south-snapshot.jpg"
-    interval: 300
+    interval: 15
     retention: 72
     thumbnail:
       width: 640
@@ -113,7 +113,7 @@ sources:
     name: "Tampere West"
     type: http_image
     url: "https://www.ursa.fi/yhd/tampereenursa/ys-images/west-snapshot.jpg"
-    interval: 300
+    interval: 15
     retention: 72
     thumbnail:
       width: 640
