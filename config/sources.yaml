@@ -57,6 +57,74 @@ sources:
       - type: age
         stale_after: 900
 
+  # ── Tampereen Ursa sky cameras (ursa.fi/yhd/tampereenursa) ──────────────────
+  # Four fixed cameras looking N/E/S/W from the Tampere observatory. Plain JPEG
+  # snapshots served with ETag + Last-Modified, so the HEAD probe skips
+  # unchanged downloads. 16:9 views, no map projection → thumbnail, no ROI crop.
+  - id: tampere_north
+    name: "Tampere North"
+    type: http_image
+    url: "https://www.ursa.fi/yhd/tampereenursa/ys-images/north-snapshot.jpg"
+    interval: 300
+    retention: 72
+    thumbnail:
+      width: 640
+      height: 360
+    link: "https://www.ursa.fi/yhd/tampereenursa/"
+    overlays:
+      - type: label
+        text: "Tampere N"
+      - type: age
+        stale_after: 900
+
+  - id: tampere_east
+    name: "Tampere East"
+    type: http_image
+    url: "https://www.ursa.fi/yhd/tampereenursa/ys-images/east-snapshot.jpg"
+    interval: 300
+    retention: 72
+    thumbnail:
+      width: 640
+      height: 360
+    link: "https://www.ursa.fi/yhd/tampereenursa/"
+    overlays:
+      - type: label
+        text: "Tampere E"
+      - type: age
+        stale_after: 900
+
+  - id: tampere_south
+    name: "Tampere South"
+    type: http_image
+    url: "https://www.ursa.fi/yhd/tampereenursa/ys-images/south-snapshot.jpg"
+    interval: 300
+    retention: 72
+    thumbnail:
+      width: 640
+      height: 360
+    link: "https://www.ursa.fi/yhd/tampereenursa/"
+    overlays:
+      - type: label
+        text: "Tampere S"
+      - type: age
+        stale_after: 900
+
+  - id: tampere_west
+    name: "Tampere West"
+    type: http_image
+    url: "https://www.ursa.fi/yhd/tampereenursa/ys-images/west-snapshot.jpg"
+    interval: 300
+    retention: 72
+    thumbnail:
+      width: 640
+      height: 360
+    link: "https://www.ursa.fi/yhd/tampereenursa/"
+    overlays:
+      - type: label
+        text: "Tampere W"
+      - type: age
+        stale_after: 900
+
   # ── Sat24 Finland ─────────────────────────────────────────────────────────
   # All four sources share a single sat24.com page fetch (cached 90s).
   # Images are composite tiles from imn-rust-lb.infoplaza.io at zoom 6.
