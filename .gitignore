@@ -15,6 +15,9 @@ archive/
 config/settings.local.yaml
 .env
 
+# Local-only Docker dev override (publishes app port; not for the VPS)
+docker-compose.override.yml
+
 # Local editor / assistant config
 .claude/settings.local.json
 
