@@ -4,6 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>KK Dashboard</title>
+
+  <!-- Link preview (Open Graph / Twitter) for WhatsApp, Telegram, etc.
+       Absolute URLs are built from request.base_url so they work on any hostname. -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Komakallio Sky Dashboard">
+  <meta property="og:description" content="Live all-sky cameras, satellite and radar over southern Finland.">
+  <meta property="og:url" content="{{ request.base_url }}">
+  <meta property="og:image" content="{{ request.base_url }}static/kk_allsky/latest.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="{{ request.base_url }}static/kk_allsky/latest.jpg">
   <script src="https://unpkg.com/htmx.org@1.9.12" defer></script>
   <style>
     :root {

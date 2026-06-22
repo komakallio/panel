@@ -16,4 +16,7 @@ COPY custom_sources/ custom_sources/
 # archive/ is mounted as a volume at runtime
 RUN mkdir -p archive
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
+# --forwarded-allow-ips=* trusts Caddy's X-Forwarded-Proto/Host (app is only
+# reachable via Caddy), so request.base_url reflects the real https://host.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", \
+     "--proxy-headers", "--forwarded-allow-ips", "*"]
