@@ -137,7 +137,7 @@ sources:
     name: "Hankasalmi Allsky"
     type: http_image
     url: "https://www.ursa.fi/yhd/sirius/sivut/kuvat/ImageLastFTP_AllSKY.jpg"
-    interval: 300
+    interval: 15
     retention: 72
     thumbnail:
       width: 640
@@ -153,7 +153,7 @@ sources:
     name: "Hankasalmi Allsky North"
     type: http_image
     url: "https://www.ursa.fi/yhd/sirius/allsky/ImageLastFTP_AllSKY_north.jpg"
-    interval: 300
+    interval: 15
     retention: 72
     thumbnail:
       width: 640
@@ -169,7 +169,7 @@ sources:
     name: "Hankasalmi HaloCAM"
     type: http_image
     url: "https://murtoinen.jklsirius.fi/ccd/HaloCAM/latestTapo.jpg"
-    interval: 30      # HaloCAM updates ~once a minute; oversample so no frame is missed (HEAD probe skips unchanged, no backfill window)
+    interval: 15      # HaloCAM updates ~once a minute; oversample so no frame is missed (HEAD probe skips unchanged, no backfill window)
     retention: 72
     thumbnail:
       width: 640
