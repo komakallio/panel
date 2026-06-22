@@ -14,20 +14,21 @@ Let's Encrypt certificate. Everything except per-server secrets lives in this re
 - **SSH access** as `root` with your key (Hetzner attaches it at creation).
 
 Replace `<ip>`, `YOURNAME.dy.fi`, and the dy.fi credentials below with your own.
+(`deploy` here is just an example admin username — use whatever you like.)
 
 ## 1. Harden the host — first login, as `root`
 ```bash
 apt update && apt -y upgrade
 
 # non-root sudo user, reusing root's SSH key
-adduser --gecos "" lauri                     # prompts for a password (used by sudo)
-usermod -aG sudo lauri
-install -d -m 700 -o lauri -g lauri /home/lauri/.ssh
-cp /root/.ssh/authorized_keys /home/lauri/.ssh/authorized_keys
-chown lauri:lauri /home/lauri/.ssh/authorized_keys
-chmod 600 /home/lauri/.ssh/authorized_keys
+adduser --gecos "" deploy                     # prompts for a password (used by sudo)
+usermod -aG sudo deploy
+install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
+cp /root/.ssh/authorized_keys /home/deploy/.ssh/authorized_keys
+chown deploy:deploy /home/deploy/.ssh/authorized_keys
+chmod 600 /home/deploy/.ssh/authorized_keys
 ```
-**In a new terminal, verify `ssh lauri@<ip>` works and `sudo whoami` prints `root`
+**In a new terminal, verify `ssh deploy@<ip>` works and `sudo whoami` prints `root`
 — before locking root out.** Then, back as root:
 ```bash
 printf 'PermitRootLogin no\nPasswordAuthentication no\nKbdInteractiveAuthentication no\n' \
@@ -39,9 +40,9 @@ ufw allow OpenSSH && ufw allow 80/tcp && ufw allow 443/tcp && ufw --force enable
 apt -y install unattended-upgrades && systemctl enable --now unattended-upgrades
 timedatectl set-timezone Europe/Helsinki
 ```
-From here on you log in as `lauri`.
+From here on you log in as `deploy`.
 
-## 2. Install Docker (as `lauri`)
+## 2. Install Docker (as `deploy`)
 ```bash
 curl -fsSL https://get.docker.com | sudo sh
 sudo usermod -aG docker $USER
@@ -81,7 +82,7 @@ Caddy fetches the TLS cert on the first request (a few seconds). Open
 - the Komakallio allsky updates in near real time (WebSocket push).
 
 ## 6. Keep the dy.fi name alive (cron)
-dy.fi names expire after ~7 days without an update. As `lauri`, `crontab -e`:
+dy.fi names expire after ~7 days without an update. As `deploy`, `crontab -e`:
 ```
 17 4 * * *  curl -fsS -A "kk-panel/1.0" -u 'DYFI_EMAIL:DYFI_PASSWORD' 'https://www.dy.fi/nic/update?hostname=YOURNAME.dy.fi' >/dev/null
 ```
@@ -90,7 +91,7 @@ dy.fi names expire after ~7 days without an update. As `lauri`, `crontab -e`:
 ## Deploying updates
 After changes are merged to `main` on GitHub:
 ```bash
-ssh petzval                   # or: ssh lauri@<ip>
+ssh deploy@<ip>               # or your SSH config alias
 cd ~/panel && ./deploy.sh
 ```
 `deploy.sh` = `git pull` + `docker compose up -d --build` + image prune + log tail.
