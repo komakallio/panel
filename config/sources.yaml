@@ -125,6 +125,62 @@ sources:
       - type: age
         stale_after: 900
 
+  # ── Hankasalmi Observatory (Jyvaskylan Sirius ry) ───────────────────────────
+  # Three live camera snapshots from the Sirius observatory in Hankasalmi, listed
+  # on https://murtoinen.jklsirius.fi/. Plain JPEGs served over HTTPS with ETag +
+  # Last-Modified, so the HEAD/conditional-GET probe skips unchanged downloads.
+  # Not map-projected → thumbnail, no ROI crop. The two all-sky frames arrive by
+  # FTP (refresh every several minutes); the HaloCAM updates ~once a minute.
+  # NOTE: the two Ursa-hosted URLs only serve the image over https — http returns
+  # an HTML page, which would fail to decode as a JPEG. Keep them https.
+  - id: hankasalmi_allsky
+    name: "Hankasalmi Allsky"
+    type: http_image
+    url: "https://www.ursa.fi/yhd/sirius/sivut/kuvat/ImageLastFTP_AllSKY.jpg"
+    interval: 300
+    retention: 72
+    thumbnail:
+      width: 640
+      height: 480     # source is 1280x960 (4:3)
+    link: "https://murtoinen.jklsirius.fi/"
+    overlays:
+      - type: label
+        text: "Hankasalmi"
+      - type: age
+        stale_after: 1800   # all-sky FTP frames refresh every several minutes; red only on a genuine stall
+
+  - id: hankasalmi_allsky_north
+    name: "Hankasalmi Allsky North"
+    type: http_image
+    url: "https://www.ursa.fi/yhd/sirius/allsky/ImageLastFTP_AllSKY_north.jpg"
+    interval: 300
+    retention: 72
+    thumbnail:
+      width: 640
+      height: 320     # source is 1240x620 (2:1, panoramic north view)
+    link: "https://murtoinen.jklsirius.fi/"
+    overlays:
+      - type: label
+        text: "Hankasalmi N"
+      - type: age
+        stale_after: 1800
+
+  - id: hankasalmi_halocam
+    name: "Hankasalmi HaloCAM"
+    type: http_image
+    url: "https://murtoinen.jklsirius.fi/ccd/HaloCAM/latestTapo.jpg"
+    interval: 30      # HaloCAM updates ~once a minute; oversample so no frame is missed (HEAD probe skips unchanged, no backfill window)
+    retention: 72
+    thumbnail:
+      width: 640
+      height: 360     # source is 1600x904 (~16:9)
+    link: "https://murtoinen.jklsirius.fi/"
+    overlays:
+      - type: label
+        text: "HaloCAM"
+      - type: age
+        stale_after: 900
+
   # ── Sat24 Finland ─────────────────────────────────────────────────────────
   # All four sources share a single sat24.com page fetch (cached 90s).
   # Images are composite tiles from imn-rust-lb.infoplaza.io at zoom 6.
