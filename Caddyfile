@@ -1,0 +1,13 @@
+# Caddy reverse proxy for the KK dashboard.
+#
+# The hostname(s) come from the SITE_HOST env var (set in .env on the server),
+# so this file stays generic and committable. One or more names, comma-separated:
+#   SITE_HOST=panel.komakallio.fi
+#   SITE_HOST=panel.komakallio.fi, kk.dy.fi
+#
+# HTTPS (Let's Encrypt) is automatic once a name resolves here. Caddy streams
+# SSE (/api/events) and upgrades WebSockets automatically — no extra config.
+
+{$SITE_HOST} {
+    reverse_proxy app:8000
+}

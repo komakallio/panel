@@ -11,6 +11,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app/ app/
 COPY config/ config/
+COPY custom_sources/ custom_sources/
 
 # archive/ is mounted as a volume at runtime
 RUN mkdir -p archive

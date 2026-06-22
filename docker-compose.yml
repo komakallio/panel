@@ -1,24 +1,31 @@
 services:
   app:
     build: .
+    expose:
+      - "8000"                          # internal only; reached by caddy as app:8000
     volumes:
-      - ./archive:/app/archive          # images persist outside container
-      - ./config:/app/config:ro         # edit sources.yaml without rebuild
+      - ./archive:/app/archive          # images persist outside the container
+      - ./config:/app/config:ro         # edit sources.yaml/settings.yaml without rebuild
       - ./custom_sources:/app/custom_sources:ro
     restart: unless-stopped
     environment:
       - TZ=Europe/Helsinki
 
-  nginx:
-    image: nginx:alpine
+  caddy:
+    image: caddy:2
+    environment:
+      - SITE_HOST=${SITE_HOST:?set SITE_HOST in .env, e.g. panel.komakallio.fi}
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./archive:/app/archive:ro       # nginx serves images directly
-      - ./certbot/conf:/etc/letsencrypt:ro
-      - ./certbot/www:/var/www/certbot:ro
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data                # persists Let's Encrypt certs across restarts
+      - caddy_config:/config
     depends_on:
       - app
     restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:
