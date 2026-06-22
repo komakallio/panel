@@ -122,7 +122,7 @@ missed poll) self-heals up to the window length. Steady-state cost is unchanged
 ### Overlays ([app/overlay.py](app/overlay.py))
 Rendered as data for the template, drawn in the browser (nothing burned into the
 JPEG):
-- `age` — the "X ago" badge. **Ages from the frame's real capture time** (newest
+- `age` — the image-age badge. **Ages from the frame's real capture time** (newest
   archived filename), not when we saved it; turns red past `stale_after`.
 - `label` — static text. `marker` — a lat/lon dot (needs `geo_bounds`, or
   `proj_bounds` for EPSG:3067 like testbed).
