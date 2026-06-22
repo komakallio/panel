@@ -148,20 +148,21 @@ sources:
         stale_after: 1200
 
   # ── Helsinki Testbed (testbed.fmi.fi) ───────────────────────────────────────
-  # The viewer page embeds the current image as a time-encoded img.php URL that
-  # changes as new frames appear, so custom_sources/testbed.py scrapes the page
-  # each fetch. Georeferenced in EPSG:3067 (see proj_bounds below).
+  # The viewer page lists its last n frames as time-encoded img.php URLs paired
+  # with UTC timestamps, so custom_sources/testbed.py scrapes the page each fetch
+  # and backfills any frame it's missing (n=15 → up to ~75 min of recovery).
+  # Georeferenced in EPSG:3067 (see proj_bounds below).
   - id: testbed_radar
     name: "Helsinki Testbed Radar"
     type: custom
     module: testbed
-    page_url: "https://testbed.fmi.fi/?imgtype=radar&t=5&n=1"
-    interval: 30      # cheap: skips the image download until the frame changes (~5 min)
+    page_url: "https://testbed.fmi.fi/?imgtype=radar&t=5&n=15"
+    interval: 30      # cheap: only downloads frames not already archived (~1 per 5 min)
     retention: 72
     thumbnail:
       width: 640
       height: 640
-    link: "https://testbed.fmi.fi/?imgtype=radar&t=5&n=1"
+    link: "https://testbed.fmi.fi/?imgtype=radar&t=5&n=15"
     # EPSG:3067 (ETRS-TM35FIN) extent of the 600x508 raster, from click
     # calibration; used browser-side (TM35FIN forward in JS) to place the
     # location marker. Shown full-frame, so no ROI crop.

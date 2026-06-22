@@ -1,30 +1,51 @@
 """
 Custom source: FMI Helsinki Testbed images (testbed.fmi.fi).
 
-The testbed viewer page embeds the current image as an obfuscated, time-encoded
-URL (https://N.img.fmi.fi/php/img.php?A=...) that changes as new frames appear,
-so hardcoding it would freeze the image. We scrape the page each fetch and pull
-out the latest image URL.
+The viewer page embeds its animation as two parallel JS arrays — anim_timestamps
+(UTC, YYYYMMDDHHMM) and anim_images_* (the obfuscated, time-encoded img.php
+URLs). We parse both and archive any frame we're missing, so a gap up to the
+page's window (n frames × 5 min) is recovered on the next poll. The img.php URLs
+can't be constructed by hand (their A= key is opaque), so scraping the page is
+the only way to reach them.
 
 Source YAML must include:
     type: custom
     module: testbed
-    page_url: <viewer URL, e.g. https://testbed.fmi.fi/?imgtype=radar&t=5&n=1>
+    page_url: <viewer URL, e.g. https://testbed.fmi.fi/?imgtype=radar&t=5&n=15>
+              n sets how many recent frames the page lists — use the max, 15.
 """
 
 import logging
 import re
+from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
 
-from app.events import notify_new_image
-from app.image_utils import save_image
+from app.backfill import backfill_frames
 
 log = logging.getLogger(__name__)
 
-# https://3.img.fmi.fi/php/img.php?A=<encoded>
-_IMG_RE = re.compile(r"https://\d+\.img\.fmi\.fi/php/img\.php\?A=[^\s\"'<>]+")
+_TS_ARR_RE  = re.compile(r"anim_timestamps\s*=\s*new Array\(([^)]*)\)")
+_IMG_ARR_RE = re.compile(r"anim_images\w*\s*=\s*new Array\(([^)]*)\)")
+_QUOTED_RE  = re.compile(r'"([^"]*)"')
+
+
+def _parse_frames(html: str) -> list[tuple[datetime, str]]:
+    """(utc_time, img_url) for every frame in the page's animation arrays."""
+    tm = _TS_ARR_RE.search(html)
+    im = _IMG_ARR_RE.search(html)
+    if not tm or not im:
+        return []
+
+    stamps = _QUOTED_RE.findall(tm.group(1))
+    urls = _QUOTED_RE.findall(im.group(1))
+    frames: list[tuple[datetime, str]] = []
+    for stamp, url in zip(stamps, urls):
+        if len(stamp) == 12 and stamp.isdigit():
+            ts = datetime.strptime(stamp, "%Y%m%d%H%M").replace(tzinfo=timezone.utc)
+            frames.append((ts, url))
+    return sorted(frames)
 
 
 async def fetch(source: dict, archive_root: Path) -> None:
@@ -34,42 +55,20 @@ async def fetch(source: dict, archive_root: Path) -> None:
         log.error("testbed: source %s missing page_url", source_id)
         return
 
-    key_file = archive_root / source_id / "latest.imgkey"
-
     try:
         async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
             page = await client.get(page_url)
             page.raise_for_status()
-            match = _IMG_RE.search(page.text)
-            if not match:
-                log.warning("testbed %s: no img.php URL found on page", source_id)
+            frames = _parse_frames(page.text)
+            if not frames:
+                log.warning("testbed %s: no frames parsed from page", source_id)
                 return
-            img_url = match.group(0)
-            # The img.php query (A=...) is time-encoded — unchanged means no new
-            # frame, so skip the image download (only the small page was fetched).
-            # Compare the query only, since the CDN host (1/2/3.img.fmi.fi) may
-            # round-robin for the same frame.
-            frame_key = img_url.split("?", 1)[-1]
-            if key_file.exists() and key_file.read_text() == frame_key:
-                log.debug("testbed %s: no new frame (image unchanged)", source_id)
-                return
-            resp = await client.get(img_url)
-            resp.raise_for_status()
-            data = resp.content
+            saved = await backfill_frames(source, archive_root, frames, client)
     except Exception as exc:
         log.warning("testbed %s: fetch failed: %s", source_id, exc)
         return
 
-    try:
-        changed = save_image(data, source, archive_root)
-    except Exception as exc:
-        log.warning("testbed %s: image processing failed: %s", source_id, exc)
-        return
-
-    key_file.write_text(frame_key)   # save_image created source_dir
-
-    if changed:
-        log.info("testbed %s: saved new frame", source_id)
-        notify_new_image(source_id)
+    if saved:
+        log.info("testbed %s: archived %d new frame(s)", source_id, saved)
     else:
-        log.debug("testbed %s: no change", source_id)
+        log.debug("testbed %s: no new frames", source_id)

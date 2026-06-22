@@ -4,6 +4,10 @@ Custom source: sat24.com composite satellite/radar images for Finland.
 All four sat24 sources share a single page fetch (cached 90s) so the
 scheduler firing them close together only causes one HTTP request.
 
+The page lists ~25 recent frames per layer (5-min spacing, ~2 h). Every fetch
+backfills any of those we're missing, so a gap up to ~2 h is recovered on the
+next successful poll; in steady state only the newest frame is downloaded.
+
 Border/coast overlays are rendered browser-side (see sources.yaml border_url).
 
 Source YAML must include:
@@ -16,12 +20,12 @@ import asyncio
 import logging
 import re
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
 
-from app.events import notify_new_image
-from app.image_utils import save_image
+from app.backfill import backfill_frames
 
 log = logging.getLogger(__name__)
 
@@ -31,6 +35,9 @@ RUST_LAYERS = "https://imn-rust-lb.infoplaza.io/v4/nowcast/tiles"
 _page_cache: tuple[str, float] | None = None
 _page_lock  = asyncio.Lock()
 _CACHE_TTL  = 90  # seconds — all four sources share one page fetch
+
+# The composite path carries the frame's UTC time: /.../202606221210/6/14/33/...
+_TS_RE = re.compile(r"/(\d{12})/")
 
 
 async def _get_page() -> str:
@@ -46,25 +53,30 @@ async def _get_page() -> str:
         return _page_cache[0]
 
 
-def _latest_image_url(html: str, layer_key: str) -> str | None:
-    """Return the most recent composite image URL for layer_key, or None."""
+def _frame_urls(html: str, layer_key: str) -> list[tuple[datetime, str]]:
+    """All (utc_time, image_url) frames for layer_key, oldest first."""
     marker = f"radarAvaliableLayers[0]['{layer_key}']"
     idx = html.find(marker)
     if idx == -1:
         log.warning("sat24: layer key %r not found in page", layer_key)
-        return None
+        return []
 
     chunk = html[idx: idx + 60_000]
     next_layer = chunk.find("radarAvaliableLayers[0][", len(marker))
     if next_layer > 0:
         chunk = chunk[:next_layer]
 
-    urls = re.findall(r'"url":"([^"]+)"', chunk)
-    if not urls:
-        log.warning("sat24: no urls found for layer %r", layer_key)
-        return None
+    frames: list[tuple[datetime, str]] = []
+    for path in re.findall(r'"url":"([^"]+)"', chunk):
+        m = _TS_RE.search(path)
+        if not m:
+            continue
+        ts = datetime.strptime(m.group(1), "%Y%m%d%H%M").replace(tzinfo=timezone.utc)
+        frames.append((ts, RUST_LAYERS + path))
 
-    return RUST_LAYERS + urls[-1]
+    if not frames:
+        log.warning("sat24: no timestamped urls found for layer %r", layer_key)
+    return sorted(frames)
 
 
 async def fetch(source: dict, archive_root: Path) -> None:
@@ -80,27 +92,14 @@ async def fetch(source: dict, archive_root: Path) -> None:
         log.warning("sat24: page fetch failed: %s", exc)
         return
 
-    url = _latest_image_url(html, layer_key)
-    if not url:
+    frames = _frame_urls(html, layer_key)
+    if not frames:
         return
 
-    try:
-        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
-            resp = await client.get(url)
-            resp.raise_for_status()
-            data = resp.content
-    except Exception as exc:
-        log.warning("sat24 %s: image fetch failed: %s", source_id, exc)
-        return
+    async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+        saved = await backfill_frames(source, archive_root, frames, client)
 
-    try:
-        changed = save_image(data, source, archive_root)
-    except Exception as exc:
-        log.warning("sat24 %s: image processing failed: %s", source_id, exc)
-        return
-
-    if changed:
-        log.info("sat24 %s: saved new frame", source_id)
-        notify_new_image(source_id)
+    if saved:
+        log.info("sat24 %s: archived %d new frame(s)", source_id, saved)
     else:
-        log.debug("sat24 %s: no change", source_id)
+        log.debug("sat24 %s: no new frames", source_id)
