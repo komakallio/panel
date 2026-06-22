@@ -17,7 +17,7 @@ def render_overlays(source: dict, archive_root: Path) -> list[dict]:
                 "type": "age",
                 "text": text,
                 "stale": stale,
-                "mtime": frame_ts,         # frame capture time (epoch); client ticks "X ago" from it
+                "mtime": frame_ts,         # frame capture time (epoch); client ticks the age from it
                 "stale_after": stale_after,
                 "position": ov.get("position", "top-right"),
             })
@@ -81,14 +81,14 @@ def _format_age(age_s: float) -> str:
     if age_s < 0:
         age_s = 0
     if age_s < 60:
-        return f"{int(age_s)}s ago"
+        return f"{int(age_s)}s"
     if age_s < 300:
-        return f"{int(age_s // 60)}:{int(age_s % 60):02d} ago"
+        return f"{int(age_s // 60)}:{int(age_s % 60):02d}"
     if age_s < 3600:
-        return f"{int(age_s / 60)} min ago"
+        return f"{int(age_s / 60)} min"
     if age_s < 86400:
-        return f"{int(age_s / 3600)} h ago"
-    return f"{int(age_s / 86400)} d ago"
+        return f"{int(age_s / 3600)} h"
+    return f"{int(age_s / 86400)} d"
 
 
 def _latlon_to_pct(lat, lon, north, south, west, east) -> tuple[float, float]:

@@ -76,8 +76,14 @@
     {% else %}
       <span class="tile-name">{{ source.name }}</span>
     {% endif %}
-    <button class="anim-btn"
-            onclick="openPlayer('{{ source.id }}', '{{ source.name }}')">▶ animate</button>
+    <span class="footer-actions">
+      {% if source.border_url %}
+        <button class="anim-btn border-btn active" onclick="toggleBorders()"
+                title="Toggle border overlay">Borders</button>
+      {% endif %}
+      <button class="anim-btn"
+              onclick="openPlayer('{{ source.id }}', '{{ source.name }}')">▶ animate</button>
+    </span>
   </div>
 </div>
 {% endif %}

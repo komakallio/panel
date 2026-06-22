@@ -7,7 +7,7 @@
 # retention:  hours to keep archived frames
 # thumbnail:  resize to fit within w×h (keeps aspect ratio, no crop)
 # overlays:   rendered in browser, nothing burned into the image file
-#   - type: age           — "3 min ago" badge, turns red when stale
+#   - type: age           — "3 min" badge, turns red when stale
 #   - type: label         — static text label
 #   - type: marker        — lat/lon dot (requires geo_bounds on the source)
 # geo_bounds: enables lat/lon → pixel mapping for marker overlays

@@ -341,8 +341,9 @@
     }
     .borders-off .tile-border { display: none; }
 
-    #border-btn { font-size: .75rem; }
-    #border-btn.active { color: var(--accent); border-color: var(--accent); }
+    /* Per-tile "Borders" button (satellite tiles only) lives in the footer */
+    .footer-actions { display: flex; align-items: center; }
+    .border-btn.active { color: var(--accent); border-color: var(--accent); }
 
     #crop-btn, #player-border-btn { font-size: .75rem; }
     #crop-btn.active, #player-border-btn.active { color: var(--accent); border-color: var(--accent); }
@@ -381,7 +382,6 @@
       <option value="efry">EFRY</option>
       <option value="off">Marker off</option>
     </select>
-    <button class="icon-btn active" id="border-btn" onclick="toggleBorders()" title="Toggle border overlay">Borders</button>
     <span id="clock"></span>
   </div>
 </header>
@@ -464,12 +464,12 @@
   // data-mtime. <1 min: seconds, 1-5 min: M:SS, then rounded to whole minutes.
   function _fmtAge(sec) {
     if (sec < 0) sec = 0;
-    if (sec < 60)    return Math.floor(sec) + 's ago';
+    if (sec < 60)    return Math.floor(sec) + 's';
     if (sec < 300)   { const m = Math.floor(sec / 60), s = Math.floor(sec % 60);
-                       return m + ':' + String(s).padStart(2, '0') + ' ago'; }
-    if (sec < 3600)  return Math.floor(sec / 60) + ' min ago';
-    if (sec < 86400) return Math.floor(sec / 3600) + ' h ago';
-    return Math.floor(sec / 86400) + ' d ago';
+                       return m + ':' + String(s).padStart(2, '0'); }
+    if (sec < 3600)  return Math.floor(sec / 60) + ' min';
+    if (sec < 86400) return Math.floor(sec / 3600) + ' h';
+    return Math.floor(sec / 86400) + ' d';
   }
   function updateAges() {
     const now = Date.now() / 1000;
@@ -483,11 +483,18 @@
   setInterval(updateAges, 1000);
   updateAges();
 
-  // ── Border toggle (shared by header + player buttons) ──
-  function toggleBorders() {
-    const off = document.body.classList.toggle('borders-off');
-    document.getElementById('border-btn').classList.toggle('active', !off);
+  // ── Border toggle (shared by satellite-tile footers + player button) ──
+  // One global state (body.borders-off); every satellite-tile footer "Borders"
+  // button and the player button reflect it. Tiles refresh via HTMX/SSE, so the
+  // freshly rendered footer buttons get re-synced after each swap (see below).
+  function _syncBorderButtons() {
+    const off = document.body.classList.contains('borders-off');
+    document.querySelectorAll('.border-btn').forEach(b => b.classList.toggle('active', !off));
     document.getElementById('player-border-btn').classList.toggle('active', !off);
+  }
+  function toggleBorders() {
+    document.body.classList.toggle('borders-off');
+    _syncBorderButtons();
     // Re-apply inside the player if it's open (inline display overrides CSS)
     if (document.getElementById('player-modal').open && pCurrentSourceId) {
       const src = pCropMode ? _thumbBorderSrc(pCurrentSourceId)
@@ -897,7 +904,7 @@
   })();
 
   // Re-place markers and refresh age badges after HTMX tile swaps
-  document.addEventListener('htmx:afterSwap', () => { placeGeoMarkers(); updateAges(); });
+  document.addEventListener('htmx:afterSwap', () => { placeGeoMarkers(); updateAges(); _syncBorderButtons(); });
 
   // Re-place markers on resize (layout-dependent positions)
   window.addEventListener('resize', () => { placeGeoMarkers(); placePlayerMarker(); });
