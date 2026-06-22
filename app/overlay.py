@@ -12,12 +12,12 @@ def render_overlays(source: dict, archive_root: Path) -> list[dict]:
 
         if ov_type == "age":
             stale_after = ov.get("stale_after", 3600)
-            text, stale, mtime = _image_age(source_dir, stale_after)
+            text, stale, frame_ts = _image_age(source_dir, stale_after)
             result.append({
                 "type": "age",
                 "text": text,
                 "stale": stale,
-                "mtime": mtime,            # epoch seconds, for live client-side ticking
+                "mtime": frame_ts,         # frame capture time (epoch); client ticks "X ago" from it
                 "stale_after": stale_after,
                 "position": ov.get("position", "top-right"),
             })
@@ -51,9 +51,28 @@ def _image_age(source_dir: Path, stale_after: int) -> tuple[str, bool, int | Non
     if not latest.exists():
         return "no image", True, None
 
-    mtime = latest.stat().st_mtime
-    age_s = datetime.now(timezone.utc).timestamp() - mtime
-    return _format_age(age_s), age_s > stale_after, round(mtime)
+    # Age from the frame's real capture time — the newest archived frame's UTC
+    # timestamp — so sat24/testbed (which run ~15-25 min behind real time) show
+    # the true image age, not when we happened to save the file. http_image
+    # sources name frames by save time, so this equals the file mtime for them.
+    frame_ts = _latest_frame_time(source_dir)
+    if frame_ts is None:
+        frame_ts = latest.stat().st_mtime
+    age_s = datetime.now(timezone.utc).timestamp() - frame_ts
+    return _format_age(age_s), age_s > stale_after, round(frame_ts)
+
+
+def _latest_frame_time(source_dir: Path) -> float | None:
+    """UTC epoch of the newest YYYYMMDD_HHMMSS.jpg frame, or None if there are
+    none. Filenames are fixed-width, so the lexical max is the newest."""
+    names = [f.stem for f in source_dir.glob("2*.jpg")]
+    if not names:
+        return None
+    try:
+        dt = datetime.strptime(max(names), "%Y%m%d_%H%M%S")
+    except ValueError:
+        return None
+    return dt.replace(tzinfo=timezone.utc).timestamp()
 
 
 def _format_age(age_s: float) -> str:

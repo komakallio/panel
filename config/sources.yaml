@@ -153,7 +153,7 @@ sources:
       - type: label
         text: "Sat24 VIS"
       - type: age
-        stale_after: 1200
+        stale_after: 1800   # age badge shows real frame time; sat24 runs ~15-20 min behind, so flag red only on a genuine stall
 
   - id: sat24_ir
     name: "Sat24 Infrared"
@@ -173,7 +173,7 @@ sources:
       - type: label
         text: "Sat24 IR"
       - type: age
-        stale_after: 1200
+        stale_after: 1800
 
   - id: sat24_micro
     name: "Sat24 Night Microphysics"
@@ -193,7 +193,7 @@ sources:
       - type: label
         text: "Sat24 Micro"
       - type: age
-        stale_after: 1200
+        stale_after: 1800
 
   - id: sat24_radar
     name: "Sat24 Radar+Sat"
@@ -213,7 +213,7 @@ sources:
       - type: label
         text: "Sat24 Radar+Sat"
       - type: age
-        stale_after: 1200
+        stale_after: 2400   # radar lags a touch more (~20-25 min) and updates lumpily
 
   # ── Helsinki Testbed (testbed.fmi.fi) ───────────────────────────────────────
   # The viewer page lists its last n frames as time-encoded img.php URLs paired
