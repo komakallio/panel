@@ -20,7 +20,7 @@ import asyncio
 import logging
 import re
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import httpx
@@ -36,8 +36,29 @@ _page_cache: tuple[str, float] | None = None
 _page_lock  = asyncio.Lock()
 _CACHE_TTL  = 90  # seconds — all four sources share one page fetch
 
-# The composite path carries the frame's UTC time: /.../202606221210/6/14/33/...
-_TS_RE = re.compile(r"/(\d{12})/")
+# Frame URL path is /<endpoint>/<timestamp>/<z>/<x>/<y>?... and the timestamp
+# token comes in three forms, all resolving to a UTC frame time:
+#   satellite obs: 12-digit YYYYMMDDHHMM         …/202606221355/…
+#   radar obs:     14-digit YYYYMMDDHHMMSS       …/20260622131000/…
+#   radar recent:  YYYYMMDDHHMM±NNN              …/202606221340+015/…
+#                  (runtime base + NNN-minute offset → 13:40 + 15 = 13:55)
+# The third form is how sat24 serves the most recent ~25 min of the radar loop:
+# nowcast-extrapolated but valid for recent *past* times (not the future), and
+# it's what keeps radar as current as the satellite layers. matches sat24's own
+# "time" field. Verified against the page 2026-06-22.
+_TS_RE = re.compile(r"^/[^/]+/(\d{12}(?:[+-]\d{3})?|\d{14})(?:/|$)")
+
+
+def _parse_ts(token: str) -> datetime | None:
+    try:
+        if len(token) == 14:                    # YYYYMMDDHHMMSS
+            return datetime.strptime(token, "%Y%m%d%H%M%S").replace(tzinfo=timezone.utc)
+        if len(token) == 12:                    # YYYYMMDDHHMM
+            return datetime.strptime(token, "%Y%m%d%H%M").replace(tzinfo=timezone.utc)
+        base = datetime.strptime(token[:12], "%Y%m%d%H%M").replace(tzinfo=timezone.utc)
+        return base + timedelta(minutes=int(token[12:]))   # YYYYMMDDHHMM±NNN
+    except ValueError:
+        return None
 
 
 async def _get_page() -> str:
@@ -68,10 +89,12 @@ def _frame_urls(html: str, layer_key: str) -> list[tuple[datetime, str]]:
 
     frames: list[tuple[datetime, str]] = []
     for path in re.findall(r'"url":"([^"]+)"', chunk):
-        m = _TS_RE.search(path)
+        m = _TS_RE.match(path)
         if not m:
             continue
-        ts = datetime.strptime(m.group(1), "%Y%m%d%H%M").replace(tzinfo=timezone.utc)
+        ts = _parse_ts(m.group(1))
+        if ts is None:
+            continue
         frames.append((ts, RUST_LAYERS + path))
 
     if not frames:
